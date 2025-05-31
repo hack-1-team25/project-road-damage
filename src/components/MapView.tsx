@@ -1,19 +1,23 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, GeoJSON, LayersControl, ZoomControl, Marker, Popup, Polyline } from 'react-leaflet';
-import { useData } from '../context/DataContext';
-import MapLegend from './MapLegend';
 import type { GeoJsonObject } from 'geojson';
+import React, { useEffect, useMemo, useState } from 'react';
+import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet';
+import { useData } from '../context/DataContext';
+
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
+import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
+
+import MapLegend from './MapLegend';
 
 const MapView: React.FC = () => {
-  const { roadData, coloredRoads } = useData();
+  const { roadData, coloredRoads} = useData();
   const [map, setMap] = useState<L.Map | null>(null);
   
   // Center coordinates for Bunkyo Ward, Tokyo
   const position: [number, number] = [35.7080, 139.7516];
   
-  // 文京区の道路データをメモ化
+  // 文京区の道路の線データをメモ化
   const bunkyoRoads = useMemo(() => bunkyoRoadsData, []);
+
   
   useEffect(() => {
     if (map) {
@@ -21,15 +25,27 @@ const MapView: React.FC = () => {
     }
   }, [map]);
 
-  // 文京区道路のスタイル（白線）
+  // 文京区の道路ポイントデータをメモ化
+  const bunkyoPoints = useMemo(() => bunkyoRoadsPointData, []);
+
+  
+
+  
+  
+
+  
+
+  // 文京区道路のスタイル（黒線）にする(道具)（可視化はしていない）
   const baseRoadStyle = useMemo(() => {
     return {
-      color: "#ffffff",
+      color: "#000000", // Black color
       weight: 3,
       opacity: 0.7,
     };
   }, []);
   
+
+
   // アップロードデータのスタイル関数
   const style = useMemo(() => (feature: any) => {
     // ポイントとラインで異なるスタイルを適用
@@ -37,7 +53,7 @@ const MapView: React.FC = () => {
       return {
         radius: 8,
         fillColor: getColor(feature.properties.damageScore || 0),
-        color: "#000",
+        color: "#000",//くろ
         weight: 1,
         opacity: 1,
         fillOpacity: 0.8
@@ -51,12 +67,26 @@ const MapView: React.FC = () => {
     }
   }, []);
 
+
+  //損傷度合いの色を決定する関数(道具)
   const getColor = (score: number): string => {
     if (score <= 1) return '#22c55e'; // Green - Minor damage
     if (score <= 3) return '#eab308'; // Yellow - Moderate damage
     return '#ef4444'; // Red - Severe damage
   };
+  //後で上のやつと揃える(道具)
+  const getPointColor = (scoreStr: string): string => {
+    const score = parseFloat(scoreStr);
+    if (isNaN(score)) return "#999999"; // 無効なスコア
+  
+    if (score >= 12) return "#ff0000";    // 赤（重度損傷）
+    if (score >= 9) return "#ffff00";     // 黄（中度損傷）
+    if (score >= 6) return "#00ff00";     // 緑（軽度損傷）
+    return "#0000ff";                     // 青（ほぼ損傷なし）
+  };
 
+
+  // 各フィーチャー(アップロードした動画など)にポップアップをバインドする関数(道具)
   const onEachFeature = (feature: any, layer: L.Layer) => {
     if (feature.properties) {
       if (feature.geometry.type === "Point") {
@@ -91,6 +121,7 @@ const MapView: React.FC = () => {
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
+        scrollWheelZoom={true}   // ← これを明示的に追加
         whenCreated={setMap}
       >
         <ZoomControl position="bottomright" />
@@ -111,12 +142,53 @@ const MapView: React.FC = () => {
           </LayersControl.BaseLayer>
         </LayersControl>
         
-        {/* 文京区の全道路を白線で表示 */}
+
+
+        {/* 文京区の全道路を表示(黒線にしてある道路の可視化) */}
         <GeoJSON 
           data={bunkyoRoads as GeoJsonObject}
           style={baseRoadStyle}
         />
+        {/* 文京区の道路ポイントデータを表示 */}
+        <GeoJSON
+          data={bunkyoPoints as GeoJsonObject}
+          pointToLayer={(feature, latlng) => {
+            const color = getPointColor(feature.properties.score);
+            const p = feature.properties;
+
+            const marker = L.circleMarker(latlng, {
+              radius: 5,
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.8,
+              weight: 1,
+            });
+
+            marker.bindPopup(`
+              <div>
+                <strong>${p.name || "(名称なし)"}</strong><br />
+                種別: ${p.highway}<br />
+                画像ID: ${p.image_id}<br />
+                損傷: ${p.damage_severity}<br />
+                信頼度: ${p.confidence}<br />
+                交通量: ${p.traffic_volume}<br />
+                水道管: ${p.water_pipes}<br />
+                補修履歴: ${p.repair_history}<br />
+                <strong>スコア: ${p.score}</strong>
+              </div>
+            `);
+
+            return marker;
+          }}
+        />
+          
+
         
+        
+        
+
+
+
         {/* 色付けされた道路を表示 */}
         {coloredRoads && coloredRoads.length > 0 && (
           <GeoJSON 
@@ -181,15 +253,23 @@ const MapView: React.FC = () => {
               
               if (coords.length < 2) return null;
               
-              return (
-                <Polyline 
-                  key={`line-${idx}`} 
+                return (
+                <Polyline
+                  key={`line-${idx}`}
                   positions={coords}
                   color={getColor(line.properties.damageScore || 0)}
                   weight={5}
                   opacity={0.7}
-                />
-              );
+                >
+                  <Popup>
+                  <div>
+                    <h3>{line.properties.roadName || '未命名の道路'}</h3>
+                    <p>損傷スコア: {line.properties.damageScore}/5</p>
+                    <p>最終更新: {line.properties.lastUpdated}</p>
+                  </div>
+                  </Popup>
+                </Polyline>
+                );
             })}
           </>
         )}
