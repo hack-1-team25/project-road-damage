@@ -1,64 +1,70 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import mockRoadData from '../data/mockRoadData';
+import React, { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import { simulateAIDamageAssessment } from '../utils/aiSimulation';
-import { findNearestRoad, findNearestRoadsForPoints } from '../utils/spatialUtils';
-import { findNearestRoadsForGPSPoints } from '../utils/roadUtils';
-import { generateColoredRoadPathFromGPS } from '../utils/roadPathUtils';
+// AIによる被害評価をシミュレーションする関数をインポートしています。
+// 空間的なユーティリティ関数をインポートしています。
+// findNearestRoad: 最も近い道路を見つける関数。
+// findNearestRoadsForPoints: 複数のポイントに対して最も近い道路を見つける関数。
+// GPSポイントに基づいて最も近い道路を見つける関数をインポートしています。
 import { Feature, LineString } from 'geojson';
+import { generateColoredRoadPathFromGPS } from '../utils/roadPathUtils';
 
 interface DataContextType {
-  roadData: any;
-  statistics: StatisticsType;
-  uploadPhotos: (files: File[]) => void;
-  processVideo: (file: File, gpsData: GPSData[]) => void;
-  loading: boolean;
-  coloredRoads: Feature<LineString>[];
+  roadData: any; // 道路データを格納するプロパティ。型は `any` で、どのようなデータ型でも許容されます。
+  statistics: StatisticsType; // 統計情報を格納するプロパティ。型は `StatisticsType` です。
+  uploadPhotos: (files: File[]) => void; // 写真をアップロードする関数。引数は `File` 型の配列で、戻り値はありません。
+  processVideo: (file: File, gpsData: GPSData[]) => void; // 動画を処理する関数。引数は `File` 型のファイルと `GPSData` 型の配列で、戻り値はありません。
+  loading: boolean; // ローディング状態を示すプロパティ。`true` または `false` のブール値です。
+  coloredRoads: Feature<LineString>[]; // 色付けされた道路データを格納するプロパティ。型は `Feature<LineString>` の配列です。
 }
 
 interface StatisticsType {
-  minorDamage: number;
-  moderateDamage: number;
-  severeDamage: number;
-  totalAssessments: number;
-  lastUpdated: string;
+  minorDamage: number; // 軽微な損傷の数を格納するプロパティ。
+  moderateDamage: number; // 中程度の損傷の数を格納するプロパティ。
+  severeDamage: number; // 深刻な損傷の数を格納するプロパティ。
+  totalAssessments: number; // 全体の評価数を格納するプロパティ。
+  lastUpdated: string; // 最終更新日時を文字列で格納するプロパティ。
 }
 
 interface PhotoAssessment {
-  coordinates: [number, number];
-  damageScore: number;
-  timestamp: string;
-  originalTimestamp?: number;
+  coordinates: [number, number]; // 写真の座標を格納するプロパティ。緯度と経度のペアです。
+  damageScore: number; // 損傷スコアを格納するプロパティ。
+  timestamp: string; // 写真のタイムスタンプを文字列で格納するプロパティ。
+  originalTimestamp?: number; // オリジナルのタイムスタンプを格納するプロパティ（オプショナル）。
 }
 
 interface GPSData {
-  timestamp: string;
-  latitude: number;
-  longitude: number;
+  timestamp: string; // GPSデータのタイムスタンプを文字列で格納するプロパティ。
+  latitude: number; // 緯度を格納するプロパティ。
+  longitude: number; // 経度を格納するプロパティ。
 }
 
 const initialStatistics: StatisticsType = {
-  minorDamage: 0,
-  moderateDamage: 0,
-  severeDamage: 0,
-  totalAssessments: 0,
-  lastUpdated: '-'
+  minorDamage: 0, // 軽微な損傷の初期値を 0 に設定。
+  moderateDamage: 0, // 中程度の損傷の初期値を 0 に設定。
+  severeDamage: 0, // 深刻な損傷の初期値を 0 に設定。
+  totalAssessments: 0, // 全体の評価数の初期値を 0 に設定。
+  lastUpdated: '-' // 最終更新日時の初期値を '-' に設定。
 };
 
 const DataContext = createContext<DataContextType>({
-  roadData: null,
-  statistics: initialStatistics,
-  uploadPhotos: () => {},
-  processVideo: () => {},
-  loading: false,
-  coloredRoads: []
+  roadData: null, // 初期値として道路データを `null` に設定。
+  statistics: initialStatistics, // 統計情報の初期値として `initialStatistics` を使用。
+  uploadPhotos: () => {}, // 写真アップロード関数の初期値として空の関数を設定。
+  processVideo: () => {}, // 動画処理関数の初期値として空の関数を設定。
+  loading: false, // ローディング状態の初期値を `false` に設定。
+  coloredRoads: [] // 色付けされた道路データの初期値を空の配列に設定。
 });
 
-export const useData = () => useContext(DataContext);
 
+
+// useContextを利用して、DataContextからデータを取得するカスタムフックを定義
+export const useData = () => useContext(DataContext);
 interface DataProviderProps {
   children: ReactNode;
 }
+
+
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [roadData, setRoadData] = useState<any>(null);
@@ -75,7 +81,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
     return [];
   }, []);
+  
 
+  //損傷の評価(道具)
   const calculateStatistics = (data: any) => {
     if (!data || !data.features) return;
     
@@ -103,7 +111,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       lastUpdated: new Date().toLocaleString('ja-JP')
     });
   };
+  
 
+  //60秒ごとに動画を画像に分割(道具)
   const extractFrames = async (videoFile: File): Promise<Blob[]> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
@@ -155,7 +165,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }, 5000);
     });
   };
+  
 
+  //[核]動画用、extractFrames、processFrames、地図上に可視化する関数
   const processVideo = async (videoFile: File, gpsData: GPSData[]) => {
     setLoading(true);
     
@@ -208,6 +220,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   };
 
+
+  //GPSデータを使用してフレームを処理し、各画像に対するGPS座標を求めてaIが損傷スコア計算(道具→動画用)
   const processFrames = async (frames: Blob[], gpsData: GPSData[]): Promise<PhotoAssessment[]> => {
     // GPSデータを時間順にソート
     const sortedGPSData = [...gpsData].sort((a, b) => {
@@ -238,6 +252,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     return assessments.filter((a): a is PhotoAssessment => a !== null);
   };
 
+
+  // GPSデータから最も近いGPSポイントを見つける関数(道具)
+  // 動画のフレームタイムスタンプ（ミリ秒）を受け取り、最も時刻が近いGPSポイントを返す
   const findClosestGPSPoint = (timestamp: number, gpsData: GPSData[]): GPSData | null => {
     if (gpsData.length === 0) return null;
     
@@ -259,6 +276,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     });
   };
 
+
+  
+  // [核]写真用、写真のファイルを受け取り、GPS座標を抽出し、AIによる損傷評価を行い、地図上に可視化する
   const uploadPhotos = async (files: File[]) => {
     setLoading(true);
     
@@ -318,6 +338,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     }
   };
 
+
+  // 道路セグメントを生成する関数(道具)
+  // 各写真の評価を基に、GeoJSON形式のポイントとラインを生成
   const createRoadSegments = (assessments: PhotoAssessment[]) => {
     const sortedAssessments = [...assessments].sort((a, b) => 
       (a.originalTimestamp || 0) - (b.originalTimestamp || 0)
@@ -338,8 +361,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }
     }));
     
-    // 連続するポイント間をLineStringとして追加
-    const lineFeatures = [];
+    // (線を一度繋がなくする)連続するポイント間をLineStringとして追加
+    /* const lineFeatures = [];
     for (let i = 0; i < sortedAssessments.length - 1; i++) {
       const current = sortedAssessments[i];
       const next = sortedAssessments[i + 1];
@@ -367,13 +390,15 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           ]
         }
       });
-    }
+    } */
     
     
     // ポイントとラインの両方を返す
-    return [...pointFeatures, ...lineFeatures];
+    return [...pointFeatures];
   };
 
+
+  // EXIFデータからタイムスタンプを抽出する関数(道具)
   const extractTimestamp = (file: File): Promise<number> => {
     return new Promise((resolve) => {
       EXIF.getData(file as any, function() {
@@ -402,6 +427,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     });
   };
 
+
+  // EXIFデータからGPS座標を抽出する関数(道具)
   const extractGPSCoordinates = (file: File): Promise<[number, number] | null> => {
     return new Promise((resolve) => {
       EXIF.getData(file as any, function() {
@@ -418,6 +445,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     });
   };
 
+
+  // DMS形式の座標をDD形式に変換する関数(道具)
   const convertDMSToDD = (dms: number[], ref: string): number => {
     const degrees = dms[0];
     const minutes = dms[1];
