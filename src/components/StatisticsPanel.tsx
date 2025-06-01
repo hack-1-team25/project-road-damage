@@ -48,7 +48,8 @@ const StatisticsPanel: React.FC = () => {
             <Doughnut data={chartData} options={options} />
           </div>
           
-          <div className="bg-green-50 p-2 rounded">
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="bg-blue-50 p-2 rounded">
               <p className="text-xs text-gray-600">損傷なし</p>
               <p className="text-lg font-semibold text-blue-600">{statistics.noDamage}</p>
             </div>
