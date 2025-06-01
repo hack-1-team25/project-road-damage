@@ -2,9 +2,10 @@ import React from 'react';
 
 const MapLegend: React.FC = () => {
   const legendItems = [
-    { color: '#22c55e', label: '軽微 (0-1)' },
-    { color: '#eab308', label: '中程度 (2-3)' },
-    { color: '#ef4444', label: '重度 (4-5)' },
+    { color: '#3b82f6', label: '損傷なし (0)' },
+    { color: '#22c55e', label: '軽微 (1-2)' },
+    { color: '#eab308', label: '中程度 (3-4)' },
+    { color: '#ef4444', label: '重度 (5)' },
   ];
 
   return (
