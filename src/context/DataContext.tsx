@@ -20,6 +20,7 @@ interface DataContextType {
 }
 
 interface StatisticsType {
+  noDamage: number;
   minorDamage: number; // 軽微な損傷の数を格納するプロパティ。
   moderateDamage: number; // 中程度の損傷の数を格納するプロパティ。
   severeDamage: number; // 深刻な損傷の数を格納するプロパティ。
@@ -46,6 +47,7 @@ interface GPSData {
 }
 
 const initialStatistics: StatisticsType = {
+  noDamage: 0, // 損傷なしの初期値を 0 に設定。
   minorDamage: 0, // 軽微な損傷の初期値を 0 に設定。
   moderateDamage: 0, // 中程度の損傷の初期値を 0 に設定。
   severeDamage: 0, // 深刻な損傷の初期値を 0 に設定。
@@ -94,6 +96,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     if (!data || !data.features) return;
     
     const counts = {
+      no: 0,
       minor: 0,
       moderate: 0,
       severe: 0,
@@ -104,12 +107,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       const score = feature.properties.damageScore || 0;
       counts.total++;
       
-      if (score <= 1) counts.minor++;
-      else if (score <= 3) counts.moderate++;
+      if (score <= 0) counts.no++;
+      else if (score <= 2) counts.minor++;
+      else if (score <= 4) counts.moderate++;
       else counts.severe++;
     });
 
     setStatistics({
+      noDamage: counts.no,
       minorDamage: counts.minor,
       moderateDamage: counts.moderate,
       severeDamage: counts.severe,
