@@ -41,13 +41,13 @@ const MapView: React.FC = () => {
   
 
   // 文京区道路のスタイル（黒線）にする(道具)（可視化はしていない）
-  const baseRoadStyle = useMemo(() => {
-    return {
-      color: "#000000", // Black color
-      weight: 3,
-      opacity: 0.7,
-    };
-  }, []);
+  // const baseRoadStyle = useMemo(() => {
+  //   return {
+  //     color: "#000000", // Black color
+  //     weight: 3,
+  //     opacity: 0.7,
+  //   };
+  // }, []);
   
 
 
@@ -75,8 +75,9 @@ const MapView: React.FC = () => {
 
   //損傷度合いの色を決定する関数(道具)
   const getColor = (score: number): string => {
-    if (score <= 1) return '#22c55e'; // Green - Minor damage
-    if (score <= 3) return '#eab308'; // Yellow - Moderate damage
+    if (score <= 0) return '#0000ff'; // blue - No damage
+    if (score <= 2) return '#22c55e'; // Green - Minor damage
+    if (score <= 4) return '#eab308'; // Yellow - Moderate damage
     return '#ef4444'; // Red - Severe damage
   };
   //後で上のやつと揃える(道具)
@@ -235,20 +236,74 @@ const MapView: React.FC = () => {
         
 
 
-        {/* 文京区の全道路を表示(黒線にしてある道路の可視化 ) */}
-        <GeoJSON 
-          data={bunkyoRoads as GeoJsonObject}
-          style={baseRoadStyle}
-        />
-        {/* 文京区の道路ポイントデータを表示 */}
+        {/* 文京区の全道路を表示(道路の可視化) (scoreがなければ黒になる)*/}
         <GeoJSON
+          data={bunkyoRoads as GeoJsonObject}
+          style={(feature) => {
+            const score = feature.properties?.score;
+            const color = typeof score === 'number' ? getPointColor(String(score)) : "#000000"; // scoreがなければ黒
+            return {
+              color: color,
+              weight: 3,
+              opacity: 0.8
+            };
+          }}
+          onEachFeature={(feature, layer) => {
+            const p = feature.properties || {};
+            const popupContent = `
+              <div>
+                <strong>${p.name || "(名称なし)"}</strong><br />
+                種別: ${p.highway || "-"}<br />
+                損傷: ${p["Damage Severity"] || "-"}<br />
+                信頼度: ${p["Confidence Level"] ?? "-"}<br />
+                交通量: ${p["Traffic Volume"] ?? "-"}<br />
+                水道管: ${p["Presence of Water Pipes"] ?? "-"}<br />
+                補修履歴: ${p["Road Repair History"] ?? "-"}<br />
+                <strong>スコア: ${p.score ?? "-"}</strong>
+              </div>
+            `;
+            layer.bindPopup(popupContent);
+          }}
+        />
+        <GeoJSON
+          data={bunkyoPoints as GeoJsonObject}//道路ポイントは透明にしておく
+          pointToLayer={(feature, latlng) => {
+            const marker = L.circleMarker(latlng, {
+              radius: 2,
+              color: "transparent",       // 外枠を透明
+              fillColor: "transparent",   // 塗りつぶしも透明
+              fillOpacity: 0,             // 念のため透明度も0
+              weight: 0                   // 枠線を非表示に
+            });
+
+            // ポップアップは残しておく
+            // const p = feature.properties;
+            // marker.bindPopup(`
+            //   <div>
+            //     <strong>${p.name || "(名称なし)"}</strong><br />
+            //     種別: ${p.highway}<br />
+            //     画像ID: ${p.image_id}<br />
+            //     損傷: ${p.damage_severity}<br />
+            //     信頼度: ${p.confidence}<br />
+            //     交通量: ${p.traffic_volume}<br />
+            //     水道管: ${p.water_pipes}<br />
+            //     補修履歴: ${p.repair_history}<br />
+            //     <strong>スコア: ${p.score}</strong>
+            //   </div>
+            // `);
+
+            return marker;
+          }}
+        />
+        {/* (使わない、バックアップ)文京区の道路ポイントデータを表示 */}
+        {/* <GeoJSON
           data={bunkyoPoints as GeoJsonObject}
           pointToLayer={(feature, latlng) => {
             const color = getPointColor(feature.properties.score);
             const p = feature.properties;
 
             const marker = L.circleMarker(latlng, {
-              radius: 5,
+              radius: 0.5,
               color: color,
               fillColor: color,
               fillOpacity: 0.8,
@@ -271,7 +326,7 @@ const MapView: React.FC = () => {
 
             return marker;
           }}
-        />
+        /> */}
           
 
         
