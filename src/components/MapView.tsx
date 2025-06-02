@@ -136,18 +136,34 @@ const MapView: React.FC = () => {
   };
 
   // 画像表示ボタンのクリックハンドラー
-  const handleShowImageClick = (imageUrl: string) => {
+    // 画像表示ボタンのクリックハンドラー
+  const handleShowImageClick = (imageUrl: string | Promise<string>) => {
     // ポップアップの位置を画面中央に設定（または適切な位置）
     setPopupPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2
     });
     
-    // 画像URLを設定
-    setHoveredImageUrl(imageUrl);
-    
-    // ポップアップを表示（ボタンクリック時のみ）
-    setIsPopupVisible(true);
+    // 画像URLがPromiseの場合は解決してから設定
+    if (imageUrl instanceof Promise) {
+      // 一時的に空文字をセット
+      setHoveredImageUrl('');
+      // Promiseを解決
+      imageUrl.then(resolvedUrl => {
+        setHoveredImageUrl(resolvedUrl);
+        // ポップアップを表示（ボタンクリック時のみ）
+        setIsPopupVisible(true);
+      }).catch(error => {
+        console.error('画像URLの解決に失敗しました:', error);
+        // エラー時は表示しない
+        setIsPopupVisible(false);
+      });
+    } else {
+      // 文字列の場合はそのまま設定
+      setHoveredImageUrl(imageUrl);
+      // ポップアップを表示（ボタンクリック時のみ）
+      setIsPopupVisible(true);
+    }
     
     // イベントの伝播を停止
     // e.stopPropagation();
