@@ -103,7 +103,7 @@ const MapView: React.FC = () => {
       });
       
       // 元画像のURLを優先的に使用
-      const imageUrl = feature.properties.originalImageUrl || feature.properties.processedImageUrl || '';
+      const imageUrl = feature.properties.processedImageUrl || feature.properties.originalImageUrl || '';
       setHoveredImageUrl(imageUrl);
       
       // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
@@ -127,7 +127,7 @@ const MapView: React.FC = () => {
       });
       
       // 元画像のURLを優先的に使用
-      const imageUrl = feature.properties.originalImageUrl || feature.properties.processedImageUrl || '';
+      const imageUrl = feature.properties.processedImageUrl || feature.properties.originalImageUrl  || '';
       setHoveredImageUrl(imageUrl);
       
       // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
@@ -160,7 +160,7 @@ const MapView: React.FC = () => {
         const { pointId, damageScore, lastUpdated, damageClass, damageClassDescription, confidence, processedImageUrl, originalImageUrl } = feature.properties;
         
         // 元画像のURLを優先的に使用
-        const imageUrl = originalImageUrl || processedImageUrl || '';
+        const imageUrl = processedImageUrl || originalImageUrl || '';
         
         // YOLOの情報を含むポップアップを作成
         let popupContent = `
@@ -377,7 +377,7 @@ const MapView: React.FC = () => {
               if (!coords || coords.length < 2) return null;
               
               // 元画像のURLを優先的に使用
-              const imageUrl = point.properties.originalImageUrl || point.properties.processedImageUrl || '';
+              const imageUrl = point.properties.processedImageUrl || point.properties.originalImageUrl || '';
               
               return (
                 <Marker 
