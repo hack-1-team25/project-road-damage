@@ -16,6 +16,12 @@ const MapView: React.FC = () => {
   const [hoveredImageUrl, setHoveredImageUrl] = useState<string | null>(null);
   const [popupPosition, setPopupPosition] = useState<{x: number, y: number}>({x: 0, y: 0});
   const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
+  const [showPlots, setShowPlots] = useState<boolean>(true); // プロット表示のON/OFF状態（デフォルトはON）
+  
+  // プロット表示のトグル処理
+  const handleTogglePlots = () => {
+    setShowPlots(prev => !prev);
+  };
   
   // Center coordinates for Bunkyo Ward, Tokyo
   const position: [number, number] = [35.7080, 139.7516];
@@ -136,7 +142,6 @@ const MapView: React.FC = () => {
   };
 
   // 画像表示ボタンのクリックハンドラー
-    // 画像表示ボタンのクリックハンドラー
   const handleShowImageClick = (imageUrl: string | Promise<string>) => {
     // ポップアップの位置を画面中央に設定（または適切な位置）
     setPopupPosition({
@@ -224,6 +229,21 @@ const MapView: React.FC = () => {
 
   return (
     <div className="relative h-full w-full">
+      {/* プロット表示切り替えトグルスイッチ - 左上に配置して他のコントロールと重ならないようにする */}
+      <div className="absolute top-4 left-4 z-[1000] bg-white p-2 rounded-md shadow-md flex items-center space-x-2">
+        <span className="text-sm font-medium">プロット表示</span>
+        <button 
+          onClick={handleTogglePlots}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${showPlots ? 'bg-blue-600' : 'bg-gray-300'}`}
+          role="switch"
+          aria-checked={showPlots}
+        >
+          <span 
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showPlots ? 'translate-x-6' : 'translate-x-1'}`} 
+          />
+        </button>
+      </div>
+      
       <MapContainer
         center={position}
         zoom={14}
@@ -252,7 +272,7 @@ const MapView: React.FC = () => {
         
 
 
-        {/* 文京区の全道路を表示(道路の可視化) (scoreがなければ黒になる)*/}
+        {/* 文京区の全道路を表示(道路の可視化 ) (scoreがなければ黒になる)*/}
         <GeoJSON
           data={bunkyoRoads as GeoJsonObject}
           style={(feature) => {
@@ -292,67 +312,12 @@ const MapView: React.FC = () => {
               weight: 0                   // 枠線を非表示に
             });
 
-            // ポップアップは残しておく
-            // const p = feature.properties;
-            // marker.bindPopup(`
-            //   <div>
-            //     <strong>${p.name || "(名称なし)"}</strong><br />
-            //     種別: ${p.highway}<br />
-            //     画像ID: ${p.image_id}<br />
-            //     損傷: ${p.damage_severity}<br />
-            //     信頼度: ${p.confidence}<br />
-            //     交通量: ${p.traffic_volume}<br />
-            //     水道管: ${p.water_pipes}<br />
-            //     補修履歴: ${p.repair_history}<br />
-            //     <strong>スコア: ${p.score}</strong>
-            //   </div>
-            // `);
-
             return marker;
           }}
         />
-        {/* (使わない、バックアップ)文京区の道路ポイントデータを表示 */}
-        {/* <GeoJSON
-          data={bunkyoPoints as GeoJsonObject}
-          pointToLayer={(feature, latlng) => {
-            const color = getPointColor(feature.properties.score);
-            const p = feature.properties;
 
-            const marker = L.circleMarker(latlng, {
-              radius: 0.5,
-              color: color,
-              fillColor: color,
-              fillOpacity: 0.8,
-              weight: 1,
-            });
-
-            marker.bindPopup(`
-              <div>
-                <strong>${p.name || "(名称なし)"}</strong><br />
-                種別: ${p.highway}<br />
-                画像ID: ${p.image_id}<br />
-                損傷: ${p.damage_severity}<br />
-                信頼度: ${p.confidence}<br />
-                交通量: ${p.traffic_volume}<br />
-                水道管: ${p.water_pipes}<br />
-                補修履歴: ${p.repair_history}<br />
-                <strong>スコア: ${p.score}</strong>
-              </div>
-            `);
-
-            return marker;
-          }}
-        /> */}
-          
-
-        
-        
-        
-
-
-
-        {/* 色付けされた道路を表示 */}
-        {coloredRoads && coloredRoads.length > 0 && (
+        {/* 色付けされた道路を表示 - プロット表示がONの場合のみ表示 */}
+        {showPlots && coloredRoads && coloredRoads.length > 0 && (
           <GeoJSON 
             key={`colored-roads-${coloredRoads.length}`}
             data={{
@@ -367,28 +332,31 @@ const MapView: React.FC = () => {
           />
         )}
         
-        {/* アップロードされたデータの表示 */}
+        {/* アップロードされたデータの表示 - プロット表示がONの場合のみ表示 */}
         {roadData && (
           <>
-            <GeoJSON 
-              key={geoJsonKey}
-              data={roadData as GeoJsonObject} 
-              style={style}
-              onEachFeature={onEachFeature}
-              pointToLayer={(feature, latlng) => {
-                return L.circleMarker(latlng, {
-                  radius: 8,
-                  fillColor: getColor(feature.properties.damageScore || 0),
-                  color: "#000",
-                  weight: 1,
-                  opacity: 1,
-                  fillOpacity: 0.8
-                });
-              }}
-            />
+            {/* GeoJSONによるデータ表示 - プロット表示がONの場合のみ表示 */}
+            {showPlots && (
+              <GeoJSON 
+                key={geoJsonKey}
+                data={roadData as GeoJsonObject} 
+                style={style}
+                onEachFeature={onEachFeature}
+                pointToLayer={(feature, latlng) => {
+                  return L.circleMarker(latlng, {
+                    radius: 8,
+                    fillColor: getColor(feature.properties.damageScore || 0),
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                  });
+                }}
+              />
+            )}
             
-            {/* 明示的にポイントとラインを描画（バックアップ） */}
-            {roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "Point").map((point, idx) => {
+            {/* 明示的にポイントとラインを描画（バックアップ） - プロット表示がONの場合のみ表示 */}
+            {showPlots && roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "Point").map((point, idx) => {
               const coords = point.geometry.coordinates;
               if (!coords || coords.length < 2) return null;
               
@@ -407,8 +375,6 @@ const MapView: React.FC = () => {
                           y: e.originalEvent.clientY
                         });
                         setHoveredImageUrl(imageUrl);
-                        // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
-                        // setIsPopupVisible(true); // この行をコメントアウト
                       }
                     }
                   }}
@@ -431,7 +397,7 @@ const MapView: React.FC = () => {
               );
             })}
             
-            {roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "LineString").map((line, idx) => {
+            {showPlots && roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "LineString").map((line, idx) => {
               if (!line.geometry.coordinates || line.geometry.coordinates.length < 2) return null;
               const coords = line.geometry.coordinates.map(coord => {
                 if (!coord || coord.length < 2) return null;
