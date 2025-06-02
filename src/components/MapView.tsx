@@ -312,12 +312,67 @@ const MapView: React.FC = () => {
               weight: 0                   // 枠線を非表示に
             });
 
+            // ポップアップは残しておく
+            // const p = feature.properties;
+            // marker.bindPopup(`
+            //   <div>
+            //     <strong>${p.name || "(名称なし)"}</strong><br />
+            //     種別: ${p.highway}<br />
+            //     画像ID: ${p.image_id}<br />
+            //     損傷: ${p.damage_severity}<br />
+            //     信頼度: ${p.confidence}<br />
+            //     交通量: ${p.traffic_volume}<br />
+            //     水道管: ${p.water_pipes}<br />
+            //     補修履歴: ${p.repair_history}<br />
+            //     <strong>スコア: ${p.score}</strong>
+            //   </div>
+            // `);
+
             return marker;
           }}
         />
+        {/* (使わない、バックアップ)文京区の道路ポイントデータを表示 */}
+        {/* <GeoJSON
+          data={bunkyoPoints as GeoJsonObject}
+          pointToLayer={(feature, latlng) => {
+            const color = getPointColor(feature.properties.score);
+            const p = feature.properties;
 
-        {/* 色付けされた道路を表示 - プロット表示がONの場合のみ表示 */}
-        {showPlots && coloredRoads && coloredRoads.length > 0 && (
+            const marker = L.circleMarker(latlng, {
+              radius: 0.5,
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.8,
+              weight: 1,
+            });
+
+            marker.bindPopup(`
+              <div>
+                <strong>${p.name || "(名称なし)"}</strong><br />
+                種別: ${p.highway}<br />
+                画像ID: ${p.image_id}<br />
+                損傷: ${p.damage_severity}<br />
+                信頼度: ${p.confidence}<br />
+                交通量: ${p.traffic_volume}<br />
+                水道管: ${p.water_pipes}<br />
+                補修履歴: ${p.repair_history}<br />
+                <strong>スコア: ${p.score}</strong>
+              </div>
+            `);
+
+            return marker;
+          }}
+        /> */}
+          
+
+        
+        
+        
+
+
+
+        {/* 色付けされた道路を表示 - 常に表示（ラインは常に表示する） */}
+        {coloredRoads && coloredRoads.length > 0 && (
           <GeoJSON 
             key={`colored-roads-${coloredRoads.length}`}
             data={{
@@ -332,30 +387,49 @@ const MapView: React.FC = () => {
           />
         )}
         
-        {/* アップロードされたデータの表示 - プロット表示がONの場合のみ表示 */}
+        {/* アップロードされたデータの表示 */}
         {roadData && (
           <>
-            {/* GeoJSONによるデータ表示 - プロット表示がONの場合のみ表示 */}
-            {showPlots && (
-              <GeoJSON 
-                key={geoJsonKey}
-                data={roadData as GeoJsonObject} 
-                style={style}
-                onEachFeature={onEachFeature}
-                pointToLayer={(feature, latlng) => {
-                  return L.circleMarker(latlng, {
-                    radius: 8,
-                    fillColor: getColor(feature.properties.damageScore || 0),
-                    color: "#000",
-                    weight: 1,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                  });
-                }}
-              />
+            {/* GeoJSONによるデータ表示 - ポイントのみプロット表示ON/OFFで制御 */}
+            {roadData.features && (
+              <>
+                {/* ポイントデータのみ条件付き表示 */}
+                {showPlots && (
+                  <GeoJSON 
+                    key={`points-${geoJsonKey}`}
+                    data={{
+                      type: "FeatureCollection",
+                      features: roadData.features.filter(f => f.geometry && f.geometry.type === "Point")
+                    } as GeoJsonObject} 
+                    style={style}
+                    onEachFeature={onEachFeature}
+                    pointToLayer={(feature, latlng) => {
+                      return L.circleMarker(latlng, {
+                        radius: 8,
+                        fillColor: getColor(feature.properties.damageScore || 0),
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                      });
+                    }}
+                  />
+                )}
+                
+                {/* ラインデータは常に表示 */}
+                <GeoJSON 
+                  key={`lines-${geoJsonKey}`}
+                  data={{
+                    type: "FeatureCollection",
+                    features: roadData.features.filter(f => f.geometry && f.geometry.type === "LineString")
+                  } as GeoJsonObject} 
+                  style={style}
+                  onEachFeature={onEachFeature}
+                />
+              </>
             )}
             
-            {/* 明示的にポイントとラインを描画（バックアップ） - プロット表示がONの場合のみ表示 */}
+            {/* 明示的にポイントを描画 - プロット表示がONの場合のみ表示 */}
             {showPlots && roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "Point").map((point, idx) => {
               const coords = point.geometry.coordinates;
               if (!coords || coords.length < 2) return null;
@@ -375,6 +449,8 @@ const MapView: React.FC = () => {
                           y: e.originalEvent.clientY
                         });
                         setHoveredImageUrl(imageUrl);
+                        // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
+                        // setIsPopupVisible(true); // この行をコメントアウト
                       }
                     }
                   }}
@@ -397,7 +473,8 @@ const MapView: React.FC = () => {
               );
             })}
             
-            {showPlots && roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "LineString").map((line, idx) => {
+            {/* ラインは常に表示（プロット表示ON/OFFに関わらず） */}
+            {roadData.features && roadData.features.filter(f => f.geometry && f.geometry.type === "LineString").map((line, idx) => {
               if (!line.geometry.coordinates || line.geometry.coordinates.length < 2) return null;
               const coords = line.geometry.coordinates.map(coord => {
                 if (!coord || coord.length < 2) return null;
