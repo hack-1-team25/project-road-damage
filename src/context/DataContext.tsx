@@ -141,7 +141,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           video.currentTime = 0;
       };
 
-      const interval = 60; // Extract frame every 60 seconds
+      const interval = 10; // Extract frame every 60 seconds
       let currentTime = 0;
 
       video.onseeked = () => {
