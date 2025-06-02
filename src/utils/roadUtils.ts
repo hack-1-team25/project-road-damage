@@ -1,11 +1,12 @@
 // 最近接道路を探索し、色を変更するための関数
-import { findNearestRoad } from './spatialUtils';
 import { Feature, LineString } from 'geojson';
+import { findNearestRoad } from './spatialUtils';
 
 // 損傷スコアに基づいて色を決定する関数
 export function getDamageColor(score: number): string {
-  if (score <= 1) return '#22c55e'; // Green - Minor damage
-  if (score <= 3) return '#eab308'; // Yellow - Moderate damage
+  if (score <= 0) return '#0000ff'; // blue - no damage
+  if (score <= 2) return '#22c55e'; // Green - Minor damage
+  if (score <= 4) return '#eab308'; // Yellow - Moderate damage
   return '#ef4444'; // Red - Severe damage
 }
 

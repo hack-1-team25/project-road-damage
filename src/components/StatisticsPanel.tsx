@@ -1,7 +1,7 @@
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 import React from 'react';
-import { useData } from '../context/DataContext';
 import { Doughnut } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { useData } from '../context/DataContext';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -9,15 +9,16 @@ const StatisticsPanel: React.FC = () => {
   const { statistics } = useData();
   
   const chartData = {
-    labels: ['軽微 (0-1)', '中程度 (2-3)', '重度 (4-5)'],
+    labels: ['損傷なし(0)','軽微 (1-2)', '中程度 (3-4)', '重度 (5)'],
     datasets: [
       {
         data: [
+          statistics.noDamage,
           statistics.minorDamage,
           statistics.moderateDamage,
           statistics.severeDamage
         ],
-        backgroundColor: ['#22c55e', '#eab308', '#ef4444'],
+        backgroundColor: ['#3b82f6','#22c55e', '#eab308', '#ef4444'],
         borderWidth: 1,
       },
     ],
@@ -47,7 +48,11 @@ const StatisticsPanel: React.FC = () => {
             <Doughnut data={chartData} options={options} />
           </div>
           
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="bg-blue-50 p-2 rounded">
+              <p className="text-xs text-gray-600">損傷なし</p>
+              <p className="text-lg font-semibold text-blue-600">{statistics.noDamage}</p>
+            </div>
             <div className="bg-green-50 p-2 rounded">
               <p className="text-xs text-gray-600">軽微</p>
               <p className="text-lg font-semibold text-green-600">{statistics.minorDamage}</p>
