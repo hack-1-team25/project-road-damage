@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useContext, useMemo, useState } from 'react';
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
-import { simulateAIDamageAssessment, getYoloPredictions, RoboflowPrediction, damageClassDescriptions, processYoloImage } from '../utils/aiSimulation';
+import { simulateAIDamageAssessment, getYoloPredictions, RoboflowPrediction, damageClassDescriptions, processYoloImage, generateYoloProcessedImageUrl } from '../utils/aiSimulation';
 // AIによる被害評価をシミュレーションする関数をインポートしています。
 // 空間的なユーティリティ関数をインポートしています。
 // findNearestRoad: 最も近い道路を見つける関数。
@@ -264,6 +264,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         
         // YOLOの予測結果を取得
         const predictions = await getYoloPredictions(frameFile);
+
+        const processedImageUrl = generateYoloProcessedImageUrl(frameFile, predictions);
         
         // 予測結果がない場合
         if (!predictions || predictions.length === 0) {
@@ -272,7 +274,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
             damageScore: 0,
             timestamp: new Date(timestamp).toISOString(),
             originalTimestamp: timestamp,
-            originalImageUrl // 元画像のURLを追加
+            originalImageUrl, // 元画像のURLを追加
+            processedImageUrl // YOLO画像URL
           };
         }
         
@@ -291,7 +294,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
           originalTimestamp: timestamp,
           damageClass: highestPrediction.class,
           confidence: highestPrediction.confidence,
-          originalImageUrl // 元画像のURLを追加
+          originalImageUrl, // 元画像のURLを追加
+          processedImageUrl // YOLO画像URL
         };
       })
     );
@@ -444,7 +448,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         // YOLO加工済み画像のURLを追加
         processedImageUrl: assessment.processedImageUrl || '',
         // 元画像のURLを追加
-        originalImageUrl: assessment.originalImageUrl || ''
+        originalImageUrl: assessment.originalImageUrl || '',
       },
       geometry: {
         type: "Point",
