@@ -1,7 +1,9 @@
 import type { GeoJsonObject } from 'geojson';
 import React, { useEffect, useMemo, useState } from 'react';
 import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet';
+
 import { useData } from '../context/DataContext';
+
 
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
@@ -30,6 +32,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   
   // 文京区の道路の線データをメモ化、
   const bunkyoRoads = useMemo(() => bunkyoRoadsData, []);
+
 
   
   useEffect(() => {
@@ -67,6 +70,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
         radius: 8,
         fillColor: getColor(feature.properties.damageScore || 0),
         color: "#000",//くろ
+        color: "#000",//くろ
         weight: 1,
         opacity: 1,
         fillOpacity: 0.8
@@ -80,6 +84,8 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
     }
   }, []);
 
+
+  //損傷度合いの色を決定する関数(道具)
 
   //損傷度合いの色を決定する関数(道具)
   const getColor = (score: number): string => {
@@ -159,6 +165,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
+        scrollWheelZoom={true}   // ← これを明示的に追加
         scrollWheelZoom={true}   // ← これを明示的に追加
         whenCreated={setMap}
       >
@@ -373,6 +380,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
               
                 return (
                 <Polyline
+                 
                   key={`line-${idx}`}
                   positions={coords}
                   color={getColor(line.properties.damageScore || 0)}
@@ -387,6 +395,8 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
                   </div>
                   </Popup>
                 </Polyline>
+               
+                  
                 );
             })}
           </>
