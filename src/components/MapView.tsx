@@ -3,13 +3,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet';
 import { useData } from '../context/DataContext';
 import YoloImagePopup from './YoloImagePopup';
-import { processImageWithYolo } from '../utils/yoloImageApi';
 
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
 
-import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
 //スコア
+import { getAHPScoreMap } from '../utils/ahpScoring';
 
 import MapLegend from './MapLegend';
 
@@ -186,7 +185,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   };
 
   
-  /スコア
+  //スコア
   const scoreMap = getAHPScoreMap();
   const scoreLookup = new Map(scoreMap.map(({ index, score }) => [index, score]));
   const highwayMap: Record<string, string> = {
