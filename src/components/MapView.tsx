@@ -8,9 +8,20 @@ import { processImageWithYolo } from '../utils/yoloImageApi';
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
 
+import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
+//スコア
+
 import MapLegend from './MapLegend';
 
-const MapView: React.FC = () => {
+//AIレポート
+interface MapViewProps {
+  onSelectRoad: (road: any) => void;
+}
+
+
+//AIレポート交換
+// const MapView: React.FC = () => {
+const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   const { roadData, coloredRoads} = useData();
   const [map, setMap] = useState<L.Map | null>(null);
   const [hoveredImageUrl, setHoveredImageUrl] = useState<string | null>(null);
@@ -91,9 +102,9 @@ const MapView: React.FC = () => {
     const score = parseFloat(scoreStr);
     if (isNaN(score)) return "#999999"; // 無効なスコア
   
-    if (score >= 12) return "#ff0000";    // 赤（重度損傷）
-    if (score >= 9) return "#ffff00";     // 黄（中度損傷）
-    if (score >= 6) return "#00ff00";     // 緑（軽度損傷）
+    if (score >= 0.7) return "#ff0000";    // 赤（重度損傷）
+    if (score >= 0.5) return "#ffff00";     // 黄（中度損傷）
+    if (score >= 0.2) return "#00ff00";     // 緑（軽度損傷）
     return "#0000ff";                     // 青（ほぼ損傷なし）
   };
 
@@ -174,6 +185,32 @@ const MapView: React.FC = () => {
     // e.stopPropagation();
   };
 
+  
+  /スコア
+  const scoreMap = getAHPScoreMap();
+  const scoreLookup = new Map(scoreMap.map(({ index, score }) => [index, score]));
+  const highwayMap: Record<string, string> = {
+    motorway: '高速道路',
+    trunk: '幹線道路',
+    primary: '主要地方道',
+    secondary: '二次道路',
+    tertiary: '第三級道路',
+    residential: '住宅街の道路',
+    service: 'サービス道路',
+    unclassified: '小道路'
+  };
+  
+  const damageMap: Record<string, string> = {
+    D00: '縦方向ひび割れ',
+    D10: '横方向ひび割れ',
+    D20: 'ワニ皮状ひび割れ',
+    D40: 'ポットホール（穴ぼこ）',
+    D43: '白線のぼやけ',
+    D44: '横断歩道のぼやけ',
+    D50: 'マンホールカバー'
+  };
+
+  
   // 各フィーチャー(アップロードした動画など)にポップアップとイベントをバインドする関数(道具)
   const onEachFeature = (feature: any, layer: L.Layer) => {
     if (feature.properties) {
@@ -272,37 +309,63 @@ const MapView: React.FC = () => {
         
 
 
-        {/* 文京区の全道路を表示(道路の可視化 ) (scoreがなければ黒になる)*/}
+        {/* 文京区の全道路を表示(道路の可視化) (scoreがなければ黒になる)*/}
         <GeoJSON
           data={bunkyoRoads as GeoJsonObject}
           style={(feature) => {
-            const score = feature.properties?.score;
-            const color = typeof score === 'number' ? getPointColor(String(score)) : "#000000"; // scoreがなければ黒
+            const index = (bunkyoRoads as any).features.indexOf(feature);
+            const score = scoreLookup.get(index);
+            const color = typeof score === 'number' ? getPointColor(String(score)) : '#000000';
             return {
-              color: color,
+              color,
               weight: 3,
               opacity: 0.8
             };
           }}
           onEachFeature={(feature, layer) => {
+            const index = (bunkyoRoads as any).features.indexOf(feature);
+            const score = scoreLookup.get(index);
+
+            // AIレポート（選択処理）
+            layer.on({
+              click: () => {
+                const roadProps = feature.properties;
+                const road = {
+                  ...roadProps,
+                  coordinates: feature.geometry.coordinates,
+                  score // ← ここでscoreを一緒に渡しておくと便利
+                };
+                onSelectRoad(road);
+              }
+            });
+
             const p = feature.properties || {};
+
+            const highwayLabel = highwayMap[p.highway] ?? 'その他';//追加
+            const damageLabel = damageMap[p["Damage Severity"]] ?? '-';//追加
+
             const popupContent = `
-              <div>
-                <strong>${p.name || "(名称なし)"}</strong><br />
-                種別: ${p.highway || "-"}<br />
-                損傷: ${p["Damage Severity"] || "-"}<br />
-                信頼度: ${p["Confidence Level"] ?? "-"}<br />
-                交通量: ${p["Traffic Volume"] ?? "-"}<br />
-                水道管: ${p["Presence of Water Pipes"] ?? "-"}<br />
-                補修履歴: ${p["Road Repair History"] ?? "-"}<br />
-                <strong>スコア: ${p.score ?? "-"}</strong>
-              </div>
+            <div style="font-size: 13px; line-height: 1.4">
+              <strong>道路名:</strong> ${p.name || "(名称なし)"}<br />
+              <strong>道路種別:</strong> ${highwayLabel}<br />
+              <strong>舗装種別:</strong> ${p["Type of Pavement"] || "-"}<br />
+              <strong>築年:</strong> ${p["Year of Construction"] ?? "-"} 年<br />
+              <strong>補修履歴:</strong> ${p["Road Repair History"] ?? "-"} 年前<br />
+              <strong>損傷の種類:</strong> ${damageLabel}<br />
+              <strong>信頼度:</strong> ${typeof p["Confidence Level"] === 'number' ? p["Confidence Level"].toFixed(2) : "-"}<br />
+              <strong>交通量:</strong> ${p["Traffic Volume"] ?? "-"}<br />
+              <strong>排水性:</strong> ${p["Drainage Performance"] ?? "-"}<br />
+              <strong>水道管:</strong> ${p["Presence of Water Pipe"] ? p["Presence of Water Pipe"] + " 年前補修" : "なし"}<br />
+              <strong>ガス管:</strong> ${p["Presence of Gas Pipe"] ? p["Presence of Gas Pipe"] + " 年前補修" : "なし"}<br />
+              <strong style="color: #d00;">補修優先スコア (AHP):</strong> ${typeof score === 'number' ? score.toFixed(3) : "-"}
+            </div>
             `;
             layer.bindPopup(popupContent);
           }}
         />
+
         <GeoJSON
-          data={bunkyoPoints as GeoJsonObject}//道路ポイントは透明にしておく
+          data={bunkyoPoints as GeoJsonObject}
           pointToLayer={(feature, latlng) => {
             const marker = L.circleMarker(latlng, {
               radius: 2,
@@ -331,7 +394,7 @@ const MapView: React.FC = () => {
             return marker;
           }}
         />
-        {/* (使わない、バックアップ)文京区の道路ポイントデータを表示 */}
+        {/* 文京区の道路ポイントデータを表示 */}
         {/* <GeoJSON
           data={bunkyoPoints as GeoJsonObject}
           pointToLayer={(feature, latlng) => {
