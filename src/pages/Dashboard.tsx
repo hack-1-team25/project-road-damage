@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MapView from '../components/MapView';
 import RoadReportPanel from '../components/RoadReportPanel'; //AIレポート
-import UploadPanel from '../components/UploadPanel';
 import StatisticsPanel from '../components/StatisticsPanel';
+import UploadPanel from '../components/UploadPanel';
 import { useData } from '../context/DataContext';
+
 
 const Dashboard: React.FC = () => {
   const { loading } = useData();
