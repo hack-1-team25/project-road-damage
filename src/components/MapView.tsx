@@ -1,8 +1,9 @@
 import type { GeoJsonObject } from 'geojson';
-import React, { useEffect, useMemo, useState } from 'react';
-import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl, useMap } from 'react-leaflet';
 import { useData } from '../context/DataContext';
 import YoloImagePopup from './YoloImagePopup';
+import MapExportControl from './MapExportControl';
 
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
@@ -12,10 +13,26 @@ import { getAHPScoreMap } from '../utils/ahpScoring';
 
 import MapLegend from './MapLegend';
 
+// エクスポート機能
+import { exportMapAsImage, fitMapToBunkyoBounds, ExportSettings } from '../utils/mapExport';
+
 //AIレポート
 interface MapViewProps {
   onSelectRoad: (road: any) => void;
 }
+
+// マップインスタンスを取得するためのコンポーネント
+const MapInstanceHandler: React.FC<{ onMapReady: (map: L.Map) => void }> = ({ onMapReady }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (map) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+  
+  return null;
+};
 
 
 //AIレポート交換
@@ -27,7 +44,53 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   const [popupPosition, setPopupPosition] = useState<{x: number, y: number}>({x: 0, y: 0});
   const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
   const [showPlots, setShowPlots] = useState<boolean>(true); // プロット表示のON/OFF状態（デフォルトはON）
+  const [isExporting, setIsExporting] = useState<boolean>(false); // エクスポート状態
+  const [mapReady, setMapReady] = useState<boolean>(false); // マップの準備完了状態
   
+  // マップコンテナの参照
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  // マップインスタンスが準備完了したときのコールバック
+  const handleMapReady = (mapInstance: L.Map) => {
+    setMap(mapInstance);
+    setMapReady(true);
+  };
+  
+  // エクスポート処理関数
+  const handleExport = async (settings: ExportSettings) => {
+    // マップの準備完了とコンテナの存在を確認
+    if (!mapReady || !mapContainerRef.current || !map) {
+      console.error('マップが準備できていません。しばらく待ってから再試行してください。');
+      alert('マップが準備できていません。しばらく待ってから再試行してください。');
+      return;
+    }
+
+    setIsExporting(true);
+    
+    try {
+      // 文京区エリアにフィットする場合
+      if (settings.fitToBounds) {
+        fitMapToBunkyoBounds(map);
+        // マップの更新を待つ
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      // マップコンテナをエクスポート
+      await exportMapAsImage(
+        mapContainerRef.current,
+        settings.filename,
+        settings.format
+      );
+      
+      console.log('地図のエクスポートが完了しました');
+    } catch (error) {
+      console.error('エクスポートエラー:', error);
+      alert('地図のエクスポートに失敗しました。もう一度お試しください。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // プロット表示のトグル処理
   const handleTogglePlots = () => {
     setShowPlots(prev => !prev);
@@ -248,14 +311,44 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
           click: (e) => handleClick(e, feature) // クリックイベントを追加
         });
       } else {
-        const { roadName, damageScore, lastUpdated } = feature.properties;
-        layer.bindPopup(`
-          <div class="p-2">
-            <h3 class="font-semibold">${roadName || '未命名の道路'}</h3>
-            <p>損傷スコア: <strong>${damageScore || 0}/5</strong></p>
-            <p>最終更新: ${lastUpdated || '情報なし'}</p>
-          </div>
-        `);
+        const { roadName, damageScore, lastUpdated, roadId } = feature.properties;
+        
+        // AIレポート（選択処理）- 動画アップロードで生成された道路線にもクリックイベントを追加
+        layer.on({
+          click: () => {
+            const roadProps = feature.properties;
+            const road = {
+              ...roadProps,
+              coordinates: feature.geometry.coordinates,
+              score: damageScore // スコア情報を渡す
+            };
+            onSelectRoad(road);
+          }
+        });
+        
+        // デフォルト道路と同じ形式のポップアップを表示
+        const p = feature.properties || {};
+        const highwayLabel = highwayMap[p.highway] ?? 'その他';
+        const damageLabel = damageMap[p["Damage Severity"] || p.damageClass] ?? '-';
+        
+        const popupContent = `
+        <div style="font-size: 13px; line-height: 1.4">
+          <strong>道路名:</strong> ${p.roadName || p.name || "(名称なし)"}<br />
+          <strong>道路種別:</strong> ${highwayLabel}<br />
+          <strong>舗装種別:</strong> ${p["Type of Pavement"] || "-"}<br />
+          <strong>築年:</strong> ${p["Year of Construction"] ?? "-"} 年<br />
+          <strong>補修履歴:</strong> ${p["Road Repair History"] ?? "-"} 年前<br />
+          <strong>損傷の種類:</strong> ${damageLabel}<br />
+          <strong>信頼度:</strong> ${typeof p["Confidence Level"] === 'number' ? p["Confidence Level"].toFixed(2) : 
+                                  typeof p.confidence === 'number' ? p.confidence.toFixed(2) : "-"}<br />
+          <strong>交通量:</strong> ${p["Traffic Volume"] ?? "-"}<br />
+          <strong>排水性:</strong> ${p["Drainage Performance"] ?? "-"}<br />
+          <strong>水道管:</strong> ${p["Presence of Water Pipe"] ? p["Presence of Water Pipe"] + " 年前補修" : "なし"}<br />
+          <strong>ガス管:</strong> ${p["Presence of Gas Pipe"] ? p["Presence of Gas Pipe"] + " 年前補修" : "なし"}<br />
+          <strong style="color: #d00;">補修優先スコア (AHP):</strong> ${typeof damageScore === 'number' ? damageScore.toFixed(3) : "-"}
+        </div>
+        `;
+        layer.bindPopup(popupContent);
       }
     }
   };
@@ -264,7 +357,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   const geoJsonKey = useMemo(() => JSON.stringify(roadData), [roadData]);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={mapContainerRef} className="relative h-full w-full">
       {/* プロット表示切り替えトグルスイッチ - 左上に配置して他のコントロールと重ならないようにする */}
       <div className="absolute top-4 left-4 z-[1000] bg-white p-2 rounded-md shadow-md flex items-center space-x-2">
         <span className="text-sm font-medium">プロット表示</span>
@@ -279,15 +372,24 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
           />
         </button>
       </div>
+
+      {/* 地図エクスポートコントロール */}
+      <MapExportControl 
+        onExport={handleExport}
+        isExporting={isExporting}
+        disabled={!mapReady}
+      />
       
       <MapContainer
         center={position}
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
-        scrollWheelZoom={true}   // ← これを明示的に追加
-        whenCreated={setMap}
+        scrollWheelZoom={true}
       >
+        {/* マップインスタンスハンドラー */}
+        <MapInstanceHandler onMapReady={handleMapReady} />
+        
         <ZoomControl position="bottomright" />
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="グレースケール">
@@ -374,82 +476,11 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
               weight: 0                   // 枠線を非表示に
             });
 
-            // ポップアップは残しておく
-            // const p = feature.properties;
-            // marker.bindPopup(`
-            //   <div>
-            //     <strong>${p.name || "(名称なし)"}</strong><br />
-            //     種別: ${p.highway}<br />
-            //     画像ID: ${p.image_id}<br />
-            //     損傷: ${p.damage_severity}<br />
-            //     信頼度: ${p.confidence}<br />
-            //     交通量: ${p.traffic_volume}<br />
-            //     水道管: ${p.water_pipes}<br />
-            //     補修履歴: ${p.repair_history}<br />
-            //     <strong>スコア: ${p.score}</strong>
-            //   </div>
-            // `);
-
             return marker;
           }}
         />
-        {/* 文京区の道路ポイントデータを表示 */}
-        {/* <GeoJSON
-          data={bunkyoPoints as GeoJsonObject}
-          pointToLayer={(feature, latlng) => {
-            const color = getPointColor(feature.properties.score);
-            const p = feature.properties;
 
-            const marker = L.circleMarker(latlng, {
-              radius: 0.5,
-              color: color,
-              fillColor: color,
-              fillOpacity: 0.8,
-              weight: 1,
-            });
-
-            marker.bindPopup(`
-              <div>
-                <strong>${p.name || "(名称なし)"}</strong><br />
-                種別: ${p.highway}<br />
-                画像ID: ${p.image_id}<br />
-                損傷: ${p.damage_severity}<br />
-                信頼度: ${p.confidence}<br />
-                交通量: ${p.traffic_volume}<br />
-                水道管: ${p.water_pipes}<br />
-                補修履歴: ${p.repair_history}<br />
-                <strong>スコア: ${p.score}</strong>
-              </div>
-            `);
-
-            return marker;
-          }}
-        /> */}
-          
-
-        
-        
-        
-
-
-
-        {/* 色付けされた道路を表示 - 常に表示（ラインは常に表示する） */}
-        {coloredRoads && coloredRoads.length > 0 && (
-          <GeoJSON 
-            key={`colored-roads-${coloredRoads.length}`}
-            data={{
-              type: "FeatureCollection",
-              features: coloredRoads
-            } as GeoJsonObject}
-            style={(feature) => ({
-              color: getColor(feature.properties.damageScore || 0),
-              weight: 5,
-              opacity: 0.8,
-            })}
-          />
-        )}
-        
-        {/* アップロードされたデータの表示 */}
+        {/* アップロードされたデータを表示 */}
         {roadData && (
           <>
             {/* GeoJSONによるデータ表示 - ポイントのみプロット表示ON/OFFで制御 */}
@@ -512,7 +543,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
                         });
                         setHoveredImageUrl(imageUrl);
                         // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
-                        // setIsPopupVisible(true); // この行をコメントアウト
+                        // setIsPopupVisible(true);
                       }
                     }
                   }}
@@ -545,7 +576,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
               
               if (coords.length < 2) return null;
               
-                return (
+              return (
                 <Polyline
                   key={`line-${idx}`}
                   positions={coords}
@@ -554,27 +585,30 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
                   opacity={0.7}
                 >
                   <Popup>
-                  <div>
-                    <h3>{line.properties.roadName || '未命名の道路'}</h3>
-                    <p>損傷スコア: {line.properties.damageScore}/5</p>
-                    <p>最終更新: {line.properties.lastUpdated}</p>
-                  </div>
+                    <div>
+                      <h3>{line.properties.roadName || '未命名の道路'}</h3>
+                      <p>損傷スコア: {line.properties.damageScore}/5</p>
+                      <p>最終更新: {line.properties.lastUpdated}</p>
+                    </div>
                   </Popup>
                 </Polyline>
-                );
+              );
             })}
           </>
         )}
       </MapContainer>
-      
-      {/* YOLO加工済み画像のポップアップ */}
-      <YoloImagePopup 
-        imageUrl={hoveredImageUrl || ''} 
-        visible={isPopupVisible} 
-        position={popupPosition} 
-        onClose={() => setIsPopupVisible(false)}
-      />
-      
+
+      {/* 画像ポップアップ */}
+      {isPopupVisible && hoveredImageUrl && (
+        <YoloImagePopup
+          imageUrl={hoveredImageUrl}
+          position={popupPosition}
+          visible={isPopupVisible}
+          onClose={() => setIsPopupVisible(false)}
+        />
+      )}
+
+      {/* 凡例 */}
       <MapLegend />
     </div>
   );
