@@ -10,6 +10,16 @@ const Dashboard: React.FC = () => {
   const { loading } = useData();
   const [selectedRoads, setSelectedRoads] = useState<any[]>([]);//AIレポート
 
+  // 個別削除機能
+  const handleRemoveRoad = (indexToRemove: number) => {
+    setSelectedRoads(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  // 一括削除機能
+  const handleClearAllRoads = () => {
+    setSelectedRoads([]);
+  };
+
   return (
     // <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row">
     //   <div className="lg:w-3/4 h-full">
@@ -54,7 +64,11 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="mt-6">
             {selectedRoads ? (
-              <RoadReportPanel roads={selectedRoads} />
+              <RoadReportPanel 
+                roads={selectedRoads} 
+                onRemoveRoad={handleRemoveRoad}
+                onClearAllRoads={handleClearAllRoads}
+              />
             ) : (
               <div className="text-sm text-gray-500">地図上の道路を選択するとレポートを表示できます</div>
             )}
