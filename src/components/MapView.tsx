@@ -634,13 +634,27 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad, onMapReady, onExportSta
               });
               
               const p = feature.properties || {};
-              const popupContent = `
-              <div style="font-size: 13px; line-height: 1.4">
-                <strong>道路名:</strong> ${p.roadName || "(名称なし)"}<br />
-                <strong>損傷スコア:</strong> ${typeof p.damageScore === 'number' ? p.damageScore.toFixed(2) : "-"}<br />
-                <strong>最終更新:</strong> ${p.lastUpdated || "-"}<br />
-              </div>
-              `;
+              const highwayLabel = highwayMap[p.highway] ?? 'その他';
+const damageLabel = damageMap[p["Damage Severity"] || p.damageClass] ?? '-';
+
+      const popupContent = `
+      <div style="font-size: 13px; line-height: 1.4">
+        <strong>道路名:</strong> ${p.roadName || p.name || "(名称なし)"}<br />
+        <strong>道路種別:</strong> ${highwayLabel}<br />
+        <strong>舗装種別:</strong> ${p["Type of Pavement"] || "-"}<br />
+        <strong>築年:</strong> ${p["Year of Construction"] ?? "-"} 年<br />
+        <strong>補修履歴:</strong> ${p["Road Repair History"] ?? "-"} 年前<br />
+        <strong>損傷の種類:</strong> ${damageLabel}<br />
+        <strong>信頼度:</strong> ${typeof p["Confidence Level"] === 'number' ? p["Confidence Level"].toFixed(2) : 
+                            typeof p.confidence === 'number' ? p.confidence.toFixed(2) : "-"}<br />
+        <strong>交通量:</strong> ${p["Traffic Volume"] ?? "-"}<br />
+        <strong>排水性:</strong> ${p["Drainage Performance"] ?? "-"}<br />
+        <strong>水道管:</strong> ${p["Presence of Water Pipe"] ? p["Presence of Water Pipe"] + " 年前補修" : "なし"}<br />
+        <strong>ガス管:</strong> ${p["Presence of Gas Pipe"] ? p["Presence of Gas Pipe"] + " 年前補修" : "なし"}<br />
+        <strong style="color: #d00;">補修優先スコア (AHP):</strong> ${typeof p.damageScore === 'number' ? p.damageScore.toFixed(3) : "-"}
+      </div>
+`     ;
+
               layer.bindPopup(popupContent);
             }}
           />
