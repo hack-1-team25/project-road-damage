@@ -1,8 +1,9 @@
 import type { GeoJsonObject } from 'geojson';
-import React, { useEffect, useMemo, useState } from 'react';
-import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { GeoJSON, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl, useMap } from 'react-leaflet';
 import { useData } from '../context/DataContext';
 import YoloImagePopup from './YoloImagePopup';
+import MapExportControl from './MapExportControl';
 
 import bunkyoRoadsData from '../data/bunkyoRoadsData';
 import bunkyoRoadsPointData from '../data/bunkyoRoadsPointData';
@@ -12,10 +13,26 @@ import { getAHPScoreMap } from '../utils/ahpScoring';
 
 import MapLegend from './MapLegend';
 
+// エクスポート機能
+import { exportMapAsImage, fitMapToBunkyoBounds, ExportSettings } from '../utils/mapExport';
+
 //AIレポート
 interface MapViewProps {
   onSelectRoad: (road: any) => void;
 }
+
+// マップインスタンスを取得するためのコンポーネント
+const MapInstanceHandler: React.FC<{ onMapReady: (map: L.Map) => void }> = ({ onMapReady }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (map) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
+  
+  return null;
+};
 
 
 //AIレポート交換
@@ -27,7 +44,53 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   const [popupPosition, setPopupPosition] = useState<{x: number, y: number}>({x: 0, y: 0});
   const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
   const [showPlots, setShowPlots] = useState<boolean>(true); // プロット表示のON/OFF状態（デフォルトはON）
+  const [isExporting, setIsExporting] = useState<boolean>(false); // エクスポート状態
+  const [mapReady, setMapReady] = useState<boolean>(false); // マップの準備完了状態
   
+  // マップコンテナの参照
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  // マップインスタンスが準備完了したときのコールバック
+  const handleMapReady = (mapInstance: L.Map) => {
+    setMap(mapInstance);
+    setMapReady(true);
+  };
+  
+  // エクスポート処理関数
+  const handleExport = async (settings: ExportSettings) => {
+    // マップの準備完了とコンテナの存在を確認
+    if (!mapReady || !mapContainerRef.current || !map) {
+      console.error('マップが準備できていません。しばらく待ってから再試行してください。');
+      alert('マップが準備できていません。しばらく待ってから再試行してください。');
+      return;
+    }
+
+    setIsExporting(true);
+    
+    try {
+      // 文京区エリアにフィットする場合
+      if (settings.fitToBounds) {
+        fitMapToBunkyoBounds(map);
+        // マップの更新を待つ
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      // マップコンテナをエクスポート
+      await exportMapAsImage(
+        mapContainerRef.current,
+        settings.filename,
+        settings.format
+      );
+      
+      console.log('地図のエクスポートが完了しました');
+    } catch (error) {
+      console.error('エクスポートエラー:', error);
+      alert('地図のエクスポートに失敗しました。もう一度お試しください。');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // プロット表示のトグル処理
   const handleTogglePlots = () => {
     setShowPlots(prev => !prev);
@@ -264,7 +327,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
   const geoJsonKey = useMemo(() => JSON.stringify(roadData), [roadData]);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={mapContainerRef} className="relative h-full w-full">
       {/* プロット表示切り替えトグルスイッチ - 左上に配置して他のコントロールと重ならないようにする */}
       <div className="absolute top-4 left-4 z-[1000] bg-white p-2 rounded-md shadow-md flex items-center space-x-2">
         <span className="text-sm font-medium">プロット表示</span>
@@ -279,15 +342,24 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
           />
         </button>
       </div>
+
+      {/* 地図エクスポートコントロール */}
+      <MapExportControl 
+        onExport={handleExport}
+        isExporting={isExporting}
+        disabled={!mapReady}
+      />
       
       <MapContainer
         center={position}
         zoom={14}
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
-        scrollWheelZoom={true}   // ← これを明示的に追加
-        whenCreated={setMap}
+        scrollWheelZoom={true}
       >
+        {/* マップインスタンスハンドラー */}
+        <MapInstanceHandler onMapReady={handleMapReady} />
+        
         <ZoomControl position="bottomright" />
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="グレースケール">
