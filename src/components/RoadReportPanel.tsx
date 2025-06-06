@@ -9,14 +9,17 @@ import {
   Clock, 
   MapPin,
   TrendingUp,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 
 interface RoadReportPanelProps {
   roads: any[];
+  onRemoveRoad: (index: number) => void;
+  onClearAllRoads: () => void;
 }
 
-const RoadReportPanel: React.FC<RoadReportPanelProps> = ({ roads }) => {
+const RoadReportPanel: React.FC<RoadReportPanelProps> = ({ roads, onRemoveRoad, onClearAllRoads }) => {
   const [selectedRoads, setSelectedRoads] = useState<any[]>([]);
   const [report, setReport] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,13 @@ const RoadReportPanel: React.FC<RoadReportPanelProps> = ({ roads }) => {
   }, [roads]);
 
   const handleRemove = (indexToRemove: number) => {
-    setSelectedRoads(prev => prev.filter((_, index) => index !== indexToRemove));
+    // 親コンポーネントの削除関数を呼び出す
+    onRemoveRoad(indexToRemove);
+  };
+
+  const handleClearAll = () => {
+    // 親コンポーネントの一括削除関数を呼び出す
+    onClearAllRoads();
   };
 
   const handleGenerate = async () => {
@@ -118,6 +127,15 @@ const RoadReportPanel: React.FC<RoadReportPanelProps> = ({ roads }) => {
                   <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
                   選択された道路 ({selectedRoads.length}件)
                 </h3>
+                {/* 一括削除ボタン */}
+                <button
+                  onClick={handleClearAll}
+                  className="flex items-center space-x-2 px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200 text-sm font-medium"
+                  title="すべて削除"
+                >
+                  <X className="w-4 h-4" />
+                  <span>すべて削除</span>
+                </button>
               </div>
               
               <div className="space-y-3 max-h-64 overflow-y-auto">
