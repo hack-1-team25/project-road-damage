@@ -34,7 +34,7 @@ const MapExportControl: React.FC<MapExportControlProps> = ({ onExport, isExporti
   };
 
   return (
-    <div className="absolute top-20 left-4 z-[1000] bg-white rounded-lg shadow-lg border border-gray-200">
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200">
       {/* クイックエクスポートボタン */}
       <div className="p-3">
         <button
@@ -162,4 +162,3 @@ const MapExportControl: React.FC<MapExportControlProps> = ({ onExport, isExporti
 };
 
 export default MapExportControl;
-
