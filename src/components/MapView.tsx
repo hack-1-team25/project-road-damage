@@ -176,23 +176,21 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
     if (feature.properties && feature.geometry.type === "Point") {
       // マウス位置を取得
       const mouseEvent = e.originalEvent;
+      
+      // 元画像のURLを優先的に使用
+      const imageUrl = feature.properties.processedImageUrl || feature.properties.originalImageUrl || '';
+      
+      // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
+      // 位置情報だけ更新（画像表示ボタンが押されたときのために）
       setPopupPosition({
         x: mouseEvent.clientX,
         y: mouseEvent.clientY
       });
-      
-      // 元画像のURLを優先的に使用
-      const imageUrl = feature.properties.processedImageUrl || feature.properties.originalImageUrl || '';
-      setHoveredImageUrl(imageUrl);
-      
-      // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
-      // setIsPopupVisible(true); // この行をコメントアウト
     }
   };
   
   const handleMouseOut = () => {
     // ポップアップは閉じない（ボタンで表示した場合は維持）
-    // setIsPopupVisible(false); // この行をコメントアウト
   };
 
   // クリックイベントハンドラー
@@ -200,17 +198,15 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
     if (feature.properties && feature.geometry.type === "Point") {
       // クリック位置を取得
       const mouseEvent = e.originalEvent;
+      
+      // 位置情報だけ更新（画像表示ボタンが押されたときのために）
       setPopupPosition({
         x: mouseEvent.clientX,
         y: mouseEvent.clientY
       });
       
-      // 元画像のURLを優先的に使用
-      const imageUrl = feature.properties.processedImageUrl || feature.properties.originalImageUrl  || '';
-      setHoveredImageUrl(imageUrl);
-      
-      // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
-      // setIsPopupVisible(true); // この行をコメントアウト
+      // 画像ポップアップを閉じる（他のプロットをクリックしたとき）
+      setIsPopupVisible(false);
     }
   };
 
@@ -242,9 +238,6 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
       // ポップアップを表示（ボタンクリック時のみ）
       setIsPopupVisible(true);
     }
-    
-    // イベントの伝播を停止
-    // e.stopPropagation();
   };
 
   
@@ -316,6 +309,9 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
         // AIレポート（選択処理）- 動画アップロードで生成された道路線にもクリックイベントを追加
         layer.on({
           click: () => {
+            // 画像ポップアップを閉じる（他の要素をクリックしたとき）
+            setIsPopupVisible(false);
+            
             const roadProps = feature.properties;
             const road = {
               ...roadProps,
@@ -386,6 +382,8 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
         scrollWheelZoom={true}
+        // マップ自体のクリックでも画像を閉じる
+        onClick={() => setIsPopupVisible(false)}
       >
         {/* マップインスタンスハンドラー */}
         <MapInstanceHandler onMapReady={handleMapReady} />
@@ -410,7 +408,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
         
 
 
-        {/* 文京区の全道路を表示(道路の可視化) (scoreがなければ黒になる)*/}
+        {/* 文京区の全道路を表示(道路の可視化 ) (scoreがなければ黒になる)*/}
         <GeoJSON
           data={bunkyoRoads as GeoJsonObject}
           style={(feature) => {
@@ -430,6 +428,9 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
             // AIレポート（選択処理）
             layer.on({
               click: () => {
+                // 画像ポップアップを閉じる（他の要素をクリックしたとき）
+                setIsPopupVisible(false);
+                
                 const roadProps = feature.properties;
                 const road = {
                   ...roadProps,
@@ -536,15 +537,13 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
                   position={[coords[1], coords[0]]}
                   eventHandlers={{
                     click: (e) => {
-                      if (imageUrl) {
-                        setPopupPosition({
-                          x: e.originalEvent.clientX,
-                          y: e.originalEvent.clientY
-                        });
-                        setHoveredImageUrl(imageUrl);
-                        // 画像ポップアップは表示しない（ボタンクリック時のみ表示）
-                        // setIsPopupVisible(true);
-                      }
+                      // クリック位置の更新のみ行い、画像表示はしない
+                      setPopupPosition({
+                        x: e.originalEvent.clientX,
+                        y: e.originalEvent.clientY
+                      });
+                      // 画像ポップアップを閉じる（他のプロットをクリックしたとき）
+                      setIsPopupVisible(false);
                     }
                   }}
                 >
@@ -583,6 +582,12 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
                   color={getColor(line.properties.damageScore || 0)}
                   weight={5}
                   opacity={0.7}
+                  eventHandlers={{
+                    click: () => {
+                      // 画像ポップアップを閉じる（他の要素をクリックしたとき）
+                      setIsPopupVisible(false);
+                    }
+                  }}
                 >
                   <Popup>
                     <div>
@@ -597,7 +602,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad }) => {
           </>
         )}
       </MapContainer>
-
+      
       {/* 画像ポップアップ */}
       {isPopupVisible && hoveredImageUrl && (
         <YoloImagePopup
