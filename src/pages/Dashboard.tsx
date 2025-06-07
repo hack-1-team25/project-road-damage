@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
       <div className="lg:w-1/4 h-full overflow-y-auto bg-white border-l border-gray-200">
         <div className="p-4">
           {/* エクスポートコントロールを右側パネルの最上部に配置 */}
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <h2 className="text-lg font-medium text-gray-900 mb-2">地図エクスポート</h2>
             <MapExportControl 
               onExport={(settings) => {
@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
               isExporting={isExporting}
               disabled={!mapReady}
             />
-          </div>
+          </div> */}
           
           <UploadPanel />
           <div className="mt-6">

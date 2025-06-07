@@ -615,7 +615,7 @@ const MapView: React.FC<MapViewProps> = ({ onSelectRoad, onMapReady, onExportSta
             style={(feature) => {
               return {
                 color: getColor(feature?.properties?.damageScore || 0),
-                weight: 5,
+                weight: 3,
                 opacity: 0.7
               };
             }}
