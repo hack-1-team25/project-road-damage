@@ -42,6 +42,33 @@ PostgreSQLの拡張機能であるPostGISを利用して地理空間データを
 | `file_path`     | `VARCHAR(255)`           | 画像ファイルの保存先パス               |
 | `uploaded_at`   | `TIMESTAMP WITH TIME ZONE` | アップロード日時 (デフォルトは現在時刻) |
 
+※ この設計はフレーム（画像）単位を表します。動画入力を受け付けるワークフローに対応するため、下記の `videos` テーブルと `images` の拡張（`frame_index`, `video_id`）を追加で定義します。
+
+### 1.3b. `videos` テーブル (新規)
+
+動画ファイルを管理し、サーバ側でフレーム抽出ジョブを起動する用途に使います。
+
+| カラム名        | 型                       | 説明                                   |
+| --------------- | ------------------------ | -------------------------------------- |
+| `id`            | `SERIAL PRIMARY KEY`     | 動画の一意なID                         |
+| `inspection_id` | `INTEGER`                | `inspections` テーブルへの外部キー     |
+| `file_path`     | `VARCHAR(255)`           | 動画ファイルの保存先パス               |
+| `duration_ms`   | `INTEGER`                | 動画長（ミリ秒）                       |
+| `frame_rate`    | `FLOAT`                  | 元動画のフレームレート                 |
+| `uploaded_at`   | `TIMESTAMP WITH TIME ZONE` | アップロード日時                        |
+
+### 1.3（修正）: `images` テーブル拡張
+
+既存の `images` テーブルに以下のカラムを追加することを想定します：
+
+| 追加カラム      | 型         | 説明 |
+| --------------- | ---------- | ---- |
+| `video_id`      | `INTEGER`  | 元が動画由来のフレームなら `videos.id` を参照 |
+| `frame_index`   | `INTEGER`  | 動画フレーム番号（動画由来の場合） |
+| `width`         | `INTEGER`  | 画像幅（px） |
+| `height`        | `INTEGER`  | 画像高（px） |
+| `source`        | `VARCHAR(50)` | 'photo'|'video_frame' 等を表す |
+
 ### 1.4. `detected_objects` テーブル
 
 画像内でAIモデルによって検出されたオブジェクト（損傷箇所など）を格納します。
@@ -54,6 +81,8 @@ PostgreSQLの拡張機能であるPostGISを利用して地理空間データを
 | `confidence`    | `FLOAT`              | 検出の信頼度スコア                     |
 | `bounding_box`  | `JSONB`              | 検出領域のバウンディングボックス座標 (e.g., `{"x": 10, "y": 20, "width": 50, "height": 30}`) |
 | `created_at`    | `TIMESTAMP WITH TIME ZONE` | 作成日時 (デフォルトは現在時刻)        |
+
+注: `bounding_box` の座標系は保存時に明示（pixel座標 or normalized 0..1）してください。動画フレーム由来の場合はピクセル座標で保存するのが実装上扱いやすいです。
 
 ### 1.5. `analysis_results` テーブル
 
@@ -98,18 +127,26 @@ AHPスコアリングなどの高度な分析結果を格納します。
 ### 2.2. 検査関連API
 
 - **`POST /api/v1/inspections`**
-  - **説明:** 新しい検査を開始します。画像ファイルと位置情報を受け取り、バックグラウンドでAI分析を実行します。
+  - **説明:** 新しい検査を開始します。クライアントは動画ファイル（例：車載カメラの録画）をアップロードします。サーバ側で動画を受け取り、フレーム抽出ジョブを作成して各フレームに対してAI推論（YOLO等）を非同期で実行します。フレームごとの検出結果と分析（AHP 等）はジョブ完了後に `inspections` に紐づけて保存されます。
   - **リクエストボディ (multipart/form-data):**
-    - `file`: 画像ファイル
-    - `latitude`: 緯度
-    - `longitude`: 経度
-    - `road_id`: 関連する道路ID
+    - `file`: 動画ファイル（mp4, mov など）
+    - `latitude` / `longitude` (optional): 検査の代表位置（動画全体に紐づく位置情報）
+    - `road_id` (optional): 関連する道路ID
+    - `frame_interval` (optional, integer): フレーム抽出間隔（例: 1000 = ミリ秒ごとに1フレーム抽出）
+    - `frame_rate` (optional, float): 抽出時に使うフレームレート上書き
+  - **挙動:**
+    1. サーバは `videos` レコードを作成し動画をストレージに保存する（S3等）。
+    2. 非同期ジョブ (`jobs` テーブル) を登録し、ワーカーが動画からフレームを抽出して `images`（フレーム単位）を作成する。
+    3. 各 `image` に対して推論を実行し、`predictions` / `detected_objects` を保存する。
+    4. 全フレーム推論完了後に `analysis_results`（AHP等）を計算して `inspections` に紐づける。
   - **レスポンス (202 Accepted):**
     ```json
     {
       "inspection_id": 123,
+      "video_id": 456,
+      "job_id": "uuid-of-processing-job",
       "status": "processing",
-      "message": "Inspection started. Results will be available shortly."
+      "message": "Video uploaded and processing started. Check job status with /api/v1/jobs/{job_id}."
     }
     ```
 
