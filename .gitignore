@@ -1,25 +1,43 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# Python
+backend/__pycache__/
+backend/*.py[cod]
+backend/.env
 
-node_modules
-dist
-dist-ssr
-*.local
+# --- Root .gitignore (project-wide) ---
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Python / Backend
+backend/__pycache__/
+backend/*.py[cod]
+backend/.env
+backend/.venv/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.coverage
+
+# Node / Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env
+old/node_modules/
+
+# Next.js build / TypeScript
+.next/
+dist/
+build/
+
+# Docker volumes / DB
+**/db_data/
+**/postgres-data/
+
+# Editor / OS
+.vscode/
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+
+# Environment / secrets
 .env
+.env.local
+.env.*.local
+
+# Logs

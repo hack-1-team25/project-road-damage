@@ -1,0 +1,27 @@
+# Backend (Python) ignore rules
+__pycache__/
+*.py[cod]
+.env
+.venv/
+*.sqlite3
+*.db
+__pypackages__/
+*.egg-info/
+.eggs/
+dist/
+build/
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+
+# Editor
+.vscode/
+.idea/
+
+# Docker
+*.env
+
+# Logs
+*.log
