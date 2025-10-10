@@ -23,8 +23,10 @@ class VideoProcessingService:
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
-        # Roboflow API設定（環境変数から取得）
-        self.roboflow_api_key = roboflow_api_key or os.getenv("ROBOFLOW_API_KEY", "Jg5nNY2yVf0uOReHR3C7")
+        # Roboflow API設定（環境変数から取得、必須）
+        self.roboflow_api_key = roboflow_api_key or os.getenv("ROBOFLOW_API_KEY")
+        if not self.roboflow_api_key:
+            raise ValueError("Roboflow API key must be provided via argument or ROBOFLOW_API_KEY environment variable.")
         self.roboflow_api_url = "https://detect.roboflow.com"
         self.roboflow_model_id = "road-damages-detection/1"
 
