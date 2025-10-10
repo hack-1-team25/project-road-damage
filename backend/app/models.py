@@ -9,7 +9,7 @@ class Road(SQLModel, table=True):
     __tablename__ = 'roads'
     id: Optional[int] = Field(default=None, primary_key=True)
     name: Optional[str] = Field(default=None, sa_column=Column(String(255)))
-    # PostGIS LineString
+    # PostGIS の LineString
     geom: Optional[str] = Field(default=None, sa_column=Column(Geometry(geometry_type='LINESTRING', srid=4326)))
     created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(TIMESTAMP(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(TIMESTAMP(timezone=True), nullable=False))
@@ -19,7 +19,7 @@ class Inspection(SQLModel, table=True):
     __tablename__ = 'inspections'
     id: Optional[int] = Field(default=None, primary_key=True)
     road_id: Optional[int] = Field(default=None, sa_column=Column(Integer))
-    # representative location
+    # 代表地点（代表的な位置情報）
     location: Optional[str] = Field(default=None, sa_column=Column(Geometry(geometry_type='POINT', srid=4326)))
     status: Optional[str] = Field(default='pending', sa_column=Column(String(50)))
     aggregate_score: Optional[float] = Field(default=None, sa_column=Column(Float))
