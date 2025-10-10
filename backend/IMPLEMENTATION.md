@@ -152,7 +152,7 @@ python-multipart==0.0.6            # multipart/form-data対応
 
 ## 環境変数
 
-- `ROBOFLOW_API_KEY`: Roboflow APIキー（デフォルト: "Jg5nNY2yVf0uOReHR3C7"）
+- `ROBOFLOW_API_KEY`: Roboflow APIキー（必須）。バックエンドの環境変数として設定してください。フロントエンドにキーを埋め込まないでください。
 
 ## 既存コードとの整合性
 
