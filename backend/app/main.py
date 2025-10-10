@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import roads
+from app.routes import roads, inspections
 
 app = FastAPI(
     title="Road Damage Detection API",
@@ -28,6 +28,7 @@ app.add_middleware(
 
 # ルーターを登録
 app.include_router(roads.router)
+app.include_router(inspections.router)
 
 @app.get("/api/health")
 async def health():
