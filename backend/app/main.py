@@ -1,7 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="road-damage-backend")
+from app.routes import roads
+
+app = FastAPI(
+    title="Road Damage Detection API",
+    description="API for managing road damage detection and inspection",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+)
 
 # CORS: フロントの開発起点（localhost:3000 等）を許可
 origins = [
@@ -17,6 +26,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ルーターを登録
+app.include_router(roads.router)
+
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    """ヘルスチェックエンドポイント"""
+    return {"status": "ok", "service": "road-damage-backend"}
