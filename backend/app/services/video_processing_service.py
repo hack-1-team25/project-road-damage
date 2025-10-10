@@ -8,6 +8,7 @@ import tempfile
 import aiofiles
 from typing import List, Dict, Optional, Tuple
 from pathlib import Path
+from datetime import datetime
 import httpx
 
 
@@ -211,6 +212,135 @@ class VideoProcessingService:
                 results.append({
                     "frame_path": frame_path,
                     "frame_index": idx,
+                    "predictions": [],
+                    "damage_score": 0.0,
+                    "width": None,
+                    "height": None,
+                    "error": str(e)
+                })
+        
+        return results, duration_ms, fps
+
+    def find_closest_gps_point(
+        self, 
+        timestamp_ms: int, 
+        gps_data: List[Dict], 
+        video_start_time: Optional[datetime] = None
+    ) -> Optional[Dict]:
+        """
+        指定されたタイムスタンプに最も近いGPSポイントを見つけます
+        
+        Args:
+            timestamp_ms: フレームのタイムスタンプ（ミリ秒）
+            gps_data: GPS位置情報のリスト（timestamp, latitude, longitudeを含む）
+            video_start_time: 動画の開始時刻（Noneの場合は最初のGPSデータの時刻を使用）
+        
+        Returns:
+            最も近いGPSポイント、見つからない場合はNone
+        """
+        if not gps_data:
+            return None
+        
+        # 動画の開始時間を最初のGPSデータの時間とみなす
+        if video_start_time is None:
+            try:
+                start_time = datetime.fromisoformat(gps_data[0]['timestamp'])
+            except (ValueError, KeyError):
+                # タイムスタンプのパースに失敗した場合は最初のGPSポイントを返す
+                return gps_data[0]
+        else:
+            start_time = video_start_time
+        
+        # フレームの時間（ミリ秒）から対応するGPSデータの時間を計算
+        target_time = start_time.timestamp() * 1000 + timestamp_ms
+        
+        # 最も近い時間のGPSポイントを探す
+        closest_point = None
+        min_diff = float('inf')
+        
+        for gps_point in gps_data:
+            try:
+                gps_time = datetime.fromisoformat(gps_point['timestamp']).timestamp() * 1000
+                diff = abs(gps_time - target_time)
+                
+                if diff < min_diff:
+                    min_diff = diff
+                    closest_point = gps_point
+            except (ValueError, KeyError):
+                continue
+        
+        return closest_point
+
+    async def process_video_frames_with_gps(
+        self,
+        video_path: str,
+        gps_data: List[Dict],
+        frame_interval_ms: int = 1000
+    ) -> Tuple[List[Dict], int, float]:
+        """
+        動画を処理してフレームを抽出し、各フレームにGPS位置を割り当ててYOLOで推論します
+
+        Args:
+            video_path: 動画ファイルのパス
+            gps_data: GPS位置情報のリスト（timestamp, latitude, longitudeを含む）
+            frame_interval_ms: フレーム抽出間隔（ミリ秒）
+
+        Returns:
+            (フレーム処理結果のリスト, 動画長(ms), フレームレート)
+            各フレーム処理結果は以下を含む:
+            - frame_path: フレーム画像のパス
+            - frame_index: フレーム番号
+            - timestamp_ms: フレームのタイムスタンプ（ミリ秒）
+            - latitude: GPS緯度
+            - longitude: GPS経度
+            - predictions: YOLO予測結果
+            - damage_score: 損傷スコア
+            - width: 画像幅
+            - height: 画像高
+        """
+        # GPSデータを時間順にソート
+        sorted_gps_data = sorted(gps_data, key=lambda x: x['timestamp'])
+        
+        # フレーム抽出
+        frame_paths, duration_ms, fps = self.extract_frames(video_path, frame_interval_ms)
+        
+        # 各フレームを推論してGPS位置を割り当て
+        results = []
+        for idx, frame_path in enumerate(frame_paths):
+            timestamp_ms = idx * frame_interval_ms
+            
+            # 最も近いGPSポイントを見つける
+            gps_point = self.find_closest_gps_point(timestamp_ms, sorted_gps_data)
+            
+            if not gps_point:
+                print(f"Warning: No GPS point found for frame {idx} at timestamp {timestamp_ms}ms")
+                continue
+            
+            try:
+                inference_result = await self.infer_yolo(frame_path)
+                predictions = inference_result.get("predictions", [])
+                damage_score = self.calculate_damage_score(predictions)
+                
+                results.append({
+                    "frame_path": frame_path,
+                    "frame_index": idx,
+                    "timestamp_ms": timestamp_ms,
+                    "latitude": gps_point['latitude'],
+                    "longitude": gps_point['longitude'],
+                    "predictions": predictions,
+                    "damage_score": damage_score,
+                    "width": inference_result.get("image_width"),
+                    "height": inference_result.get("image_height")
+                })
+            except Exception as e:
+                print(f"Error processing frame {idx}: {str(e)}")
+                # エラーが発生してもGPS情報は保存
+                results.append({
+                    "frame_path": frame_path,
+                    "frame_index": idx,
+                    "timestamp_ms": timestamp_ms,
+                    "latitude": gps_point['latitude'],
+                    "longitude": gps_point['longitude'],
                     "predictions": [],
                     "damage_score": 0.0,
                     "width": None,
