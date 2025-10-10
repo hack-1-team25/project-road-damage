@@ -71,7 +71,7 @@ InspectionServiceDep = Annotated[InspectionService, Depends(get_inspection_servi
 
     **リクエストパラメータ:**
     - `file`: 動画ファイル（mp4, mov など）
-    - `latitude` / `longitude` (optional): 検査の代表位置
+    - `gps_file`: GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）
     - `road_id` (optional): 関連する道路ID
     - `frame_interval` (optional): フレーム抽出間隔（ミリ秒、デフォルト: 1000）
     - `frame_rate` (optional): フレームレート上書き
@@ -81,8 +81,7 @@ InspectionServiceDep = Annotated[InspectionService, Depends(get_inspection_servi
 async def create_inspection(
     service: InspectionServiceDep,
     file: UploadFile = File(..., description="動画ファイル（mp4, mov など）"),
-    latitude: Optional[float] = Form(None, description="検査の代表位置（緯度）"),
-    longitude: Optional[float] = Form(None, description="検査の代表位置（経度）"),
+    gps_file: UploadFile = File(..., description="GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）"),
     road_id: Optional[int] = Form(None, description="関連する道路ID"),
     frame_interval: int = Form(1000, description="フレーム抽出間隔（ミリ秒）", ge=100),
     frame_rate: Optional[float] = Form(None, description="抽出時に使うフレームレート上書き")
@@ -93,8 +92,7 @@ async def create_inspection(
     Args:
         service: FastAPI によって注入される InspectionService インスタンス
         file: アップロードされた動画ファイル
-        latitude: 検査の代表位置（緯度）
-        longitude: 検査の代表位置（経度）
+        gps_file: GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）
         road_id: 関連する道路ID
         frame_interval: フレーム抽出間隔（ミリ秒）
         frame_rate: フレームレート上書き
@@ -115,6 +113,52 @@ async def create_inspection(
         }
     """
     try:
+        # GPS CSVファイルの検証とパース
+        if not gps_file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No GPS CSV file uploaded"
+            )
+        
+        if not gps_file.filename.endswith('.csv'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GPS file must be a CSV file"
+            )
+        
+        # CSVファイルを読み込んでパース
+        gps_content = await gps_file.read()
+        gps_text = gps_content.decode('utf-8')
+        gps_data = []
+        
+        lines = gps_text.strip().split('\n')
+        for i, line in enumerate(lines):
+            # ヘッダー行をスキップ
+            if i == 0:
+                continue
+            
+            line = line.strip()
+            if not line:
+                continue
+            
+            parts = line.split(',')
+            if len(parts) >= 5:
+                try:
+                    gps_data.append({
+                        'timestamp': parts[0],
+                        'latitude': float(parts[3]),
+                        'longitude': float(parts[4])
+                    })
+                except (ValueError, IndexError) as e:
+                    print(f"Warning: Failed to parse GPS line {i}: {line} - {str(e)}")
+                    continue
+        
+        if not gps_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid GPS data found in CSV file"
+            )
+
         # ファイルの検証
         if not file.filename:
             raise HTTPException(
@@ -145,8 +189,7 @@ async def create_inspection(
         result = await service.create_inspection_from_video(
             file_content=file_content,
             filename=file.filename,
-            latitude=latitude,
-            longitude=longitude,
+            gps_data=gps_data,
             road_id=road_id,
             frame_interval=frame_interval,
             frame_rate=frame_rate

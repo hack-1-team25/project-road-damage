@@ -3,7 +3,7 @@
 検査のビジネスロジックを提供します
 """
 import uuid
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime
 
 from app.repositories.inspection_repository import InspectionRepository
@@ -30,8 +30,7 @@ class InspectionService:
         self,
         file_content: bytes,
         filename: str,
-        latitude: Optional[float] = None,
-        longitude: Optional[float] = None,
+        gps_data: List[Dict],
         road_id: Optional[int] = None,
         frame_interval: int = 1000,
         frame_rate: Optional[float] = None
@@ -42,8 +41,7 @@ class InspectionService:
         Args:
             file_content: 動画ファイルのバイトデータ
             filename: ファイル名
-            latitude: 緯度
-            longitude: 経度
+            gps_data: GPS位置情報のリスト（timestamp, latitude, longitudeを含む）
             road_id: 道路ID
             frame_interval: フレーム抽出間隔（ミリ秒）
             frame_rate: フレームレート上書き
@@ -51,6 +49,10 @@ class InspectionService:
         Returns:
             作成された検査情報を含む辞書
         """
+        # GPS データから代表位置を計算（最初のGPSポイントを使用）
+        latitude = gps_data[0]['latitude'] if gps_data else None
+        longitude = gps_data[0]['longitude'] if gps_data else None
+        
         # 1. 検査レコードを作成
         inspection = await self.repository.create_inspection(
             road_id=road_id,
@@ -79,7 +81,8 @@ class InspectionService:
                 "video_id": video.id,
                 "video_path": video_path,
                 "frame_interval": frame_interval,
-                "job_id": job_id
+                "job_id": job_id,
+                "gps_data": gps_data
             }
         )
 
@@ -91,7 +94,8 @@ class InspectionService:
                 inspection_id=inspection.id,
                 video_id=video.id,
                 video_path=video_path,
-                frame_interval=frame_interval
+                frame_interval=frame_interval,
+                gps_data=gps_data
             )
         except Exception as e:
             # エラーが発生した場合はステータスを更新
@@ -114,7 +118,8 @@ class InspectionService:
         inspection_id: int,
         video_id: int,
         video_path: str,
-        frame_interval: int
+        frame_interval: int,
+        gps_data: List[Dict]
     ):
         """
         動画処理ジョブを実行します（内部メソッド）
@@ -124,10 +129,12 @@ class InspectionService:
             video_id: 動画ID
             video_path: 動画パス
             frame_interval: フレーム抽出間隔
+            gps_data: GPS位置情報のリスト
         """
-        # フレーム抽出と推論を実行
-        frame_results, duration_ms, fps = await self.video_service.process_video_frames(
+        # フレーム抽出と推論を実行（GPS位置付き）
+        frame_results, duration_ms, fps = await self.video_service.process_video_frames_with_gps(
             video_path=video_path,
+            gps_data=gps_data,
             frame_interval_ms=frame_interval
         )
 
@@ -139,12 +146,14 @@ class InspectionService:
         frame_count = 0
 
         for frame_result in frame_results:
-            # 画像レコードを作成
+            # 画像レコードを作成（GPS情報を含む）
             image = await self.repository.create_image(
                 inspection_id=inspection_id,
                 file_path=frame_result["frame_path"],
                 video_id=video_id,
                 frame_index=frame_result["frame_index"],
+                gps_latitude=frame_result.get("latitude"),
+                gps_longitude=frame_result.get("longitude"),
                 width=frame_result.get("width"),
                 height=frame_result.get("height"),
                 source="video_frame"
