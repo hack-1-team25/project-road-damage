@@ -31,7 +31,9 @@ services:
       - ./backend:/app
 
   db_init:
-    image: project-road-damage-backend:3.11
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     depends_on:
       - db
     entrypoint: ["/bin/sh", "-c", "until pg_isready -h db -p 5432 -U postgres; do sleep 1; done; psql postgresql://postgres:postgres@db:5432/road_damage -f /app/migrations/init_schema.sql"]
