@@ -4,7 +4,7 @@
 """
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from geoalchemy2.functions import ST_AsGeoJSON
 from app.models import Road
 
@@ -103,6 +103,6 @@ class RoadRepository:
         Returns:
             道路の総数 (整数)
         """
-        query = select(Road).count()
+        query = select(func.count(Road.id))
         result = await self.session.execute(query)
         return result.scalar() or 0
