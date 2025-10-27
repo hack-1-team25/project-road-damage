@@ -2,10 +2,10 @@
 検査（Inspection）リポジトリ
 データベースアクセス層を提供します
 """
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from geoalchemy2.functions import ST_AsGeoJSON, ST_GeomFromText
 
 from app.models import Inspection, Video, Image, DetectedObject, AnalysisResult, Job
@@ -269,3 +269,72 @@ class InspectionRepository:
 
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def get_nearest_road_for_point(
+        self,
+        longitude: float,
+        latitude: float,
+        max_distance_m: float = 50.0
+    ) -> Optional[Dict]:
+        """
+        GPS座標から最寄りの道路を検索します
+
+        Args:
+            longitude: 経度
+            latitude: 緯度
+            max_distance_m: 最大距離（メートル、デフォルト50m）
+
+        Returns:
+            道路情報の辞書（id, distance_m を含む）、見つからない場合は None
+        """
+        sql = text("""
+        WITH pt AS (
+            SELECT ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) AS geom
+        )
+        SELECT r.id, 
+               ST_Distance(r.geom::geography, pt.geom::geography) AS distance_m
+        FROM roads r, pt
+        WHERE ST_DWithin(r.geom::geography, pt.geom::geography, :max_m)
+        ORDER BY distance_m
+        LIMIT 1
+        """)
+        
+        result = await self.db.execute(
+            sql,
+            {"lon": longitude, "lat": latitude, "max_m": max_distance_m}
+        )
+        row = result.first()
+        
+        if row:
+            return {"id": row.id, "distance_m": float(row.distance_m)}
+        return None
+
+    async def get_nearest_roads_from_points(
+        self,
+        gps_points: List[Dict],
+        max_distance_m: float = 50.0
+    ) -> Dict[int, int]:
+        """
+        複数のGPS座標から各点の最寄り道路を検索し、道路ごとの出現回数を返します
+
+        Args:
+            gps_points: GPS座標のリスト（各要素に latitude, longitude を含む）
+            max_distance_m: 最大距離（メートル）
+
+        Returns:
+            道路IDをキー、出現回数を値とする辞書
+        """
+        road_counts: Dict[int, int] = {}
+        
+        for point in gps_points:
+            nearest = await self.get_nearest_road_for_point(
+                longitude=point['longitude'],
+                latitude=point['latitude'],
+                max_distance_m=max_distance_m
+            )
+            
+            if nearest:
+                road_id = nearest['id']
+                road_counts[road_id] = road_counts.get(road_id, 0) + 1
+        
+        return road_counts

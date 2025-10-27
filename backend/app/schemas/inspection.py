@@ -16,22 +16,35 @@ class InspectionCreateRequest(BaseModel):
     frame_rate: Optional[float] = Field(None, description="抽出時に使うフレームレート上書き")
 
 
+class RoadInspectionInfo(BaseModel):
+    """道路別検査情報"""
+    inspection_id: int = Field(..., description="検査ID")
+    road_id: Optional[int] = Field(None, description="道路ID（未割当の場合はNull）")
+    frame_count: int = Field(..., description="フレーム数")
+    aggregate_score: float = Field(..., description="集約スコア")
+
+
 class InspectionCreateResponse(BaseModel):
     """検査作成レスポンス（202 Accepted）"""
-    inspection_id: int = Field(..., description="作成された検査ID")
+    parent_inspection_id: int = Field(..., description="親検査ID（動画管理用）")
     video_id: int = Field(..., description="作成された動画ID")
     job_id: str = Field(..., description="処理ジョブのID")
+    inspections: List[RoadInspectionInfo] = Field(..., description="道路別の検査情報リスト")
     status: str = Field(..., description="処理ステータス")
     message: str = Field(..., description="メッセージ")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "inspection_id": 123,
+                "parent_inspection_id": 123,
                 "video_id": 456,
                 "job_id": "uuid-of-processing-job",
+                "inspections": [
+                    {"inspection_id": 124, "road_id": 1, "frame_count": 10, "aggregate_score": 2.5},
+                    {"inspection_id": 125, "road_id": 2, "frame_count": 5, "aggregate_score": 1.8}
+                ],
                 "status": "processing",
-                "message": "Video uploaded and processing started. Check job status with /api/v1/jobs/{job_id}."
+                "message": "Video uploaded and processing started. Created 2 road-specific inspections."
             }
         }
 

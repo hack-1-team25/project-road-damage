@@ -66,15 +66,17 @@ InspectionServiceDep = Annotated[InspectionService, Depends(get_inspection_servi
     1. サーバは `videos` レコードを作成し動画をストレージに保存する
     2. 非同期ジョブ (`jobs` テーブル) を登録
     3. ワーカーが動画からフレームを抽出して `images`（フレーム単位）を作成
-    4. 各 `image` に対して推論を実行し、`detected_objects` を保存
-    5. 全フレーム推論完了後に `analysis_results` を計算して `inspections` に紐づける
+    4. 各フレームのGPSから最寄り道路を検索し、道路ごとに `inspection` を作成
+    5. 各 `image` に対して推論を実行し、`detected_objects` を保存
+    6. 道路ごとに `aggregate_score` を計算して `inspections` に保存
 
     **リクエストパラメータ:**
     - `file`: 動画ファイル（mp4, mov など）
     - `gps_file`: GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）
-    - `road_id` (optional): 関連する道路ID
     - `frame_interval` (optional): フレーム抽出間隔（ミリ秒、デフォルト: 1000）
     - `frame_rate` (optional): フレームレート上書き
+    
+    **注意:** road_id は自動的にGPS座標から算出されます
     """,
     response_description="検査が作成され、処理が開始されました（202 Accepted）"
 )
@@ -82,18 +84,17 @@ async def create_inspection(
     service: InspectionServiceDep,
     file: UploadFile = File(..., description="動画ファイル（mp4, mov など）"),
     gps_file: UploadFile = File(..., description="GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）"),
-    road_id: Optional[int] = Form(None, description="関連する道路ID"),
     frame_interval: int = Form(1000, description="フレーム抽出間隔（ミリ秒）", ge=100),
     frame_rate: Optional[float] = Form(None, description="抽出時に使うフレームレート上書き")
 ) -> InspectionCreateResponse:
     """
     動画から新しい検査を作成します
+    各フレームのGPS座標から最寄り道路を自動検索し、道路ごとに inspection を作成します
 
     Args:
         service: FastAPI によって注入される InspectionService インスタンス
         file: アップロードされた動画ファイル
         gps_file: GPS位置情報CSVファイル（timestamp,,,latitude,longitude形式）
-        road_id: 関連する道路ID
         frame_interval: フレーム抽出間隔（ミリ秒）
         frame_rate: フレームレート上書き
 
@@ -105,11 +106,15 @@ async def create_inspection(
 
     Example response:
         {
-            "inspection_id": 123,
+            "parent_inspection_id": 123,
             "video_id": 456,
             "job_id": "uuid-of-processing-job",
+            "inspections": [
+                {"inspection_id": 124, "road_id": 1, "frame_count": 10, "aggregate_score": 2.5},
+                {"inspection_id": 125, "road_id": 2, "frame_count": 5, "aggregate_score": 1.8}
+            ],
             "status": "processing",
-            "message": "Video uploaded and processing started. Check job status with /api/v1/jobs/{job_id}."
+            "message": "Video uploaded and processing started. Created 2 road-specific inspections."
         }
     """
     try:
@@ -190,7 +195,6 @@ async def create_inspection(
             file_content=file_content,
             filename=file.filename,
             gps_data=gps_data,
-            road_id=road_id,
             frame_interval=frame_interval,
             frame_rate=frame_rate
         )
