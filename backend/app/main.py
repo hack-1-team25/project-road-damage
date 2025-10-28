@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api import videos
+from app.api import videos, danger_spots
 
 app = FastAPI(
     title="Road Damage Detection API",
@@ -32,3 +32,4 @@ async def health():
 
 # API ルーター登録
 app.include_router(videos.router, prefix=settings.API_V1_PREFIX, tags=["videos"])
+app.include_router(danger_spots.router, prefix=settings.API_V1_PREFIX, tags=["danger-spots"])
