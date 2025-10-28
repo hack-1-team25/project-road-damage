@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.api import videos
 
 app = FastAPI(
     title="Road Damage Detection API",
@@ -11,7 +12,7 @@ app = FastAPI(
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,9 +30,5 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
-# API ルーターをここで登録予定
-# from app.api import images, videos, danger_spots, statistics
-# app.include_router(images.router, prefix=settings.API_V1_PREFIX, tags=["images"])
-# app.include_router(videos.router, prefix=settings.API_V1_PREFIX, tags=["videos"])
-# app.include_router(danger_spots.router, prefix=settings.API_V1_PREFIX, tags=["danger_spots"])
-# app.include_router(statistics.router, prefix=settings.API_V1_PREFIX, tags=["statistics"])
+# API ルーター登録
+app.include_router(videos.router, prefix=settings.API_V1_PREFIX, tags=["videos"])
