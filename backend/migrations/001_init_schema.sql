@@ -162,8 +162,8 @@ CREATE TRIGGER update_videos_updated_at BEFORE UPDATE ON videos
 CREATE TRIGGER update_images_updated_at BEFORE UPDATE ON images
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger to update gps_location when lat/lng is set
-CREATE OR REPLACE FUNCTION update_gps_location()
+-- Trigger to update gps_location for images table (uses gps_latitude/gps_longitude)
+CREATE OR REPLACE FUNCTION update_images_gps_location()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.gps_latitude IS NOT NULL AND NEW.gps_longitude IS NOT NULL THEN
@@ -173,11 +173,22 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_images_gps_location BEFORE INSERT OR UPDATE ON images
-    FOR EACH ROW EXECUTE FUNCTION update_gps_location();
+-- Trigger to update location for danger_spots table (uses latitude/longitude)
+CREATE OR REPLACE FUNCTION update_danger_spots_location()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
+        NEW.location = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
 
-CREATE TRIGGER update_danger_spots_location BEFORE INSERT OR UPDATE ON danger_spots
-    FOR EACH ROW EXECUTE FUNCTION update_gps_location();
+CREATE TRIGGER trigger_update_images_gps_location BEFORE INSERT OR UPDATE ON images
+    FOR EACH ROW EXECUTE FUNCTION update_images_gps_location();
+
+CREATE TRIGGER trigger_update_danger_spots_location BEFORE INSERT OR UPDATE ON danger_spots
+    FOR EACH ROW EXECUTE FUNCTION update_danger_spots_location();
 
 -- =============================================
 -- Completion message
