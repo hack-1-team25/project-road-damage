@@ -55,3 +55,12 @@ export async function getVideo(videoId: string): Promise<VideoDetailResponse> {
   );
   return response.data;
 }
+
+// 画像ファイルのURLを取得
+export function getImageUrl(imageId: string, processed: boolean = false): string {
+  const params = new URLSearchParams();
+  if (processed) {
+    params.append('processed', 'true');
+  }
+  return `${API_ENDPOINTS.images}/${imageId}/file?${params.toString()}`;
+}
