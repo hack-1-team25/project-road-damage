@@ -76,3 +76,38 @@ export const damageClassDescriptions: Record<string, string> = {
   D44: '横断歩道のぼやけ',
   D50: 'マンホールカバー'
 };
+
+// 道路データ関連の型定義
+export interface RoadProperties {
+  name?: string;
+  highway?: string;
+  'Type of Pavement'?: string;
+  'Year of Construction'?: number;
+  'Road Repair History'?: number;
+  'Damage Severity'?: string;
+  'Confidence Level'?: number;
+  'Traffic Volume'?: string;
+  'Drainage Performance'?: string;
+  'Presence of Water Pipe'?: number;
+  'Presence of Gas Pipe'?: number;
+  [key: string]: any;
+}
+
+export interface RoadFeature {
+  type: string;
+  properties: RoadProperties;
+  geometry: {
+    type: string;
+    coordinates: number[][] | number[][][];
+  };
+}
+
+export interface RoadData {
+  type: string;
+  features: RoadFeature[];
+}
+
+export interface AHPScore {
+  index: number;
+  score: number;
+}
