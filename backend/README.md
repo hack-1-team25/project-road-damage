@@ -2,6 +2,22 @@
 
 FastAPI backend for detecting and managing road damage from images and videos.
 
+## ⚡ 重要なアップデート
+
+**カスタムYOLOモデルへの移行完了!**
+
+Roboflow APIから自作の`best.pt`モデルを使用した推論に切り替えました。
+詳細は [CUSTOM_MODEL_MIGRATION.md](./CUSTOM_MODEL_MIGRATION.md) を参照してください。
+
+**検出可能な道路損傷タイプ:**
+- D00: クラック (線状)
+- D10: クラック (ひび割れ)
+- D20: クラック (ワニ皮状)
+- D40: ポットホール
+- D43: 白線かすれ
+- D44: クロスウォーク消失
+- D50: 段差
+
 ## 🚀 Quick Start
 
 ### Prerequisites

@@ -1,25 +1,43 @@
 """
-Roboflow API integration service for YOLO inference
+Custom YOLO model inference service
 """
-import httpx
 import io
+import os
 from typing import List, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
-from app.core.config import settings
+
+# Patch torch.load to work with custom YOLO models in PyTorch 2.6+
+import torch
+_original_torch_load = torch.load
+
+def _patched_torch_load(f, map_location=None, pickle_module=None, weights_only=None, **kwargs):
+    """Patched torch.load that sets weights_only=False for .pt files"""
+    # For .pt files (YOLO models), we trust them and set weights_only=False
+    if isinstance(f, str) and f.endswith('.pt'):
+        weights_only = False
+    return _original_torch_load(f, map_location=map_location, pickle_module=pickle_module, 
+                                weights_only=weights_only, **kwargs)
+
+torch.load = _patched_torch_load
+
+from ultralytics import YOLO
 from app.models.schemas import RoboflowResponse, RoboflowPrediction
 
 
 class RoboflowService:
-    """Service for Roboflow API integration"""
+    """Service for custom YOLO model inference"""
     
     def __init__(self):
-        self.api_key = settings.ROBOFLOW_API_KEY
-        self.model_id = "road-damages-detection/1"
-        self.api_url = f"https://detect.roboflow.com/{self.model_id}"
+        # Load custom YOLO model (best.pt)
+        model_path = os.path.join(os.path.dirname(__file__), "best.pt")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        
+        self.model = YOLO(model_path)
     
     async def analyze_image(self, image_bytes: bytes) -> RoboflowResponse:
         """
-        Analyze image using Roboflow YOLO API
+        Analyze image using custom YOLO model
         
         Args:
             image_bytes: Image file bytes (JPEG/PNG)
@@ -27,29 +45,42 @@ class RoboflowService:
         Returns:
             RoboflowResponse with predictions
         """
-        # Resize image if needed
+        # Load and resize image if needed
         image = Image.open(io.BytesIO(image_bytes))
         image = self._resize_image(image, max_dimension=1024)
         
-        # Convert to JPEG bytes
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='JPEG', quality=95)
-        img_byte_arr.seek(0)
+        # Run inference with custom YOLO model
+        results = self.model(image)
         
-        # Call Roboflow API
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                self.api_url,
-                params={
-                    "api_key": self.api_key,
-                    "format": "json"
-                },
-                files={"file": ("image.jpg", img_byte_arr, "image/jpeg")}
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Extract predictions from YOLO results
+        predictions = []
+        detections = results[0].boxes.data.cpu().numpy().tolist()
+        class_names = results[0].names
         
-        return RoboflowResponse(**data)
+        for det in detections:
+            x1, y1, x2, y2, conf, cls_id = det
+            
+            # Convert bounding box format from (x1, y1, x2, y2) to (center_x, center_y, width, height)
+            center_x = (x1 + x2) / 2
+            center_y = (y1 + y2) / 2
+            width = x2 - x1
+            height = y2 - y1
+            
+            predictions.append(RoboflowPrediction(
+                x=float(center_x),
+                y=float(center_y),
+                width=float(width),
+                height=float(height),
+                confidence=float(conf),
+                class_name=class_names[int(cls_id)],
+                class_id=int(cls_id)
+            ))
+        
+        # Return in RoboflowResponse format for compatibility
+        return RoboflowResponse(
+            predictions=predictions,
+            image={"width": image.width, "height": image.height}
+        )
     
     def calculate_damage_score(self, predictions: List[RoboflowPrediction]) -> int:
         """

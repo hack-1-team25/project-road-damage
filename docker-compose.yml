@@ -42,7 +42,10 @@ services:
       DEFAULT_FRAME_INTERVAL_SECONDS: 10
       DEBUG: "True"
     volumes:
-      - ./backend:/app
+      # Mount source code for hot-reload, but exclude __pycache__ directories
+      - ./backend/app:/app/app:ro
+      - ./backend/migrations:/app/migrations:ro
+      # Preserve installed packages by NOT mounting the entire backend directory
       - backend_storage:/app/storage
     ports:
       - "8000:8000"
