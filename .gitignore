@@ -30,6 +30,9 @@ build/
 **/db_data/
 **/postgres-data/
 
+# Ignore committed model weights
+backend/app/services/best.pt
+
 # Editor / OS
 .vscode/
 .idea/

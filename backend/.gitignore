@@ -44,6 +44,10 @@ uploads/
 *.jpeg
 *.png
 
+# Machine learning model weights
+# Ignore the YOLO model file (best.pt) stored in app/services
+app/services/best.pt
+
 # Database
 *.db
 *.sqlite3
