@@ -49,9 +49,10 @@ export const UploadPanel: React.FC = () => {
 
       setUploadResult(result);
       alert('動画のアップロードに成功しました！バックグラウンドで処理が開始されます。');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload error:', err);
-      setError(err.response?.data?.detail || '動画のアップロードに失敗しました');
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || '動画のアップロードに失敗しました');
     } finally {
       setLoading(false);
     }

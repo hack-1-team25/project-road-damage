@@ -5,7 +5,7 @@ import { calculateAHPWeights } from './calculateAHPWeights';
 import { getDangerSpotsNearRoad } from './geoUtils';
 
 interface FeatureProperties {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 interface DangerSpot {
@@ -33,21 +33,29 @@ function normalizeProperties(properties: FeatureProperties) {
     不良: 0.0,
   };
 
+  const pavement = properties['Type of Pavement'];
+  const repair = properties['Road Repair History'];
+  const age = properties['Year of Construction'];
+  const waterPipe = properties['Presence of Water Pipe'];
+  const gasPipe = properties['Presence of Gas Pipe'];
+  const traffic = properties['Traffic Volume'];
+  const drainage = properties['Drainage Performance'];
+
   return {
     // 損傷情報は危険箇所からのみ取得するため、デフォルトは0
     damage: 0,
     confidence: 0,
-    pavement: pavementMap[properties['Type of Pavement']] ?? 0.1,
-    repair: Math.min(properties['Road Repair History'] / 30, 1.0),
-    age: Math.min(properties['Year of Construction'] / 50, 1.0),
-    waterPipe: properties['Presence of Water Pipe'] > 0
-      ? 0.5 + Math.min(properties['Presence of Water Pipe'] / 100, 0.5)
+    pavement: typeof pavement === 'string' ? (pavementMap[pavement] ?? 0.1) : 0.1,
+    repair: typeof repair === 'number' ? Math.min(repair / 30, 1.0) : 0,
+    age: typeof age === 'number' ? Math.min(age / 50, 1.0) : 0,
+    waterPipe: typeof waterPipe === 'number' && waterPipe > 0
+      ? 0.5 + Math.min(waterPipe / 100, 0.5)
       : 0.0,
-    gasPipe: properties['Presence of Gas Pipe'] > 0
-      ? 0.5 + Math.min(properties['Presence of Gas Pipe'] / 100, 0.5)
+    gasPipe: typeof gasPipe === 'number' && gasPipe > 0
+      ? 0.5 + Math.min(gasPipe / 100, 0.5)
       : 0.0,
-    traffic: trafficMap[properties['Traffic Volume']] ?? 0.5,
-    drainage: drainageMap[properties['Drainage Performance']] ?? 0.5,
+    traffic: typeof traffic === 'string' ? (trafficMap[traffic] ?? 0.5) : 0.5,
+    drainage: typeof drainage === 'string' ? (drainageMap[drainage] ?? 0.5) : 0.5,
   };
 }
 
@@ -75,16 +83,29 @@ const ahpMatrix = [
 const criteria = [
   "damage", "confidence", "pavement", "repair", "age",
   "waterPipe", "gasPipe", "traffic", "drainage"
-];
+] as const;
 
 const { weights } = calculateAHPWeights(ahpMatrix);
 
-// ✅ 各 feature に対応するスコアだけを配列で返す（AHP動的重み使用）
+interface Feature {
+  properties: FeatureProperties;
+  geometry: {
+    type: string;
+    coordinates: number[][] | number[][][];
+  };
+}
+
+interface GeoJSONData {
+  features: Feature[];
+}
+
+// ✅ 各 feature に対応するスコアだけを配列で返す(AHP動的重み使用)
 export function getAHPScoreMap(): { index: number; score: number }[] {
-  return (bunkyoRoadsGeoJSON as any).features.map((feature: any, index: number) => {
+  const geoData = bunkyoRoadsGeoJSON as GeoJSONData;
+  return geoData.features.map((feature: Feature, index: number) => {
     const scores = normalizeProperties(feature.properties);
     const totalScore = criteria.reduce((sum, key, i) => {
-      return sum + weights[i] * (scores as any)[key];
+      return sum + weights[i] * scores[key];
     }, 0);
     return { index, score: parseFloat(totalScore.toFixed(3)) };
   });
@@ -101,11 +122,12 @@ export function getDynamicAHPScoreMap(
   maxDistanceMeters: number = 50,
   dangerImpactWeight: number = 0.7
 ): { index: number; score: number; nearbyDangers: number }[] {
-  return (bunkyoRoadsGeoJSON as any).features.map((feature: any, index: number) => {
+  const geoData = bunkyoRoadsGeoJSON as GeoJSONData;
+  return geoData.features.map((feature: Feature, index: number) => {
     // 基本AHPスコアを計算（道路の静的プロパティのみ）
     const scores = normalizeProperties(feature.properties);
     const baseScore = criteria.reduce((sum, key, i) => {
-      return sum + weights[i] * (scores as any)[key];
+      return sum + weights[i] * scores[key];
     }, 0);
 
     // 道路の近くにある危険箇所を取得

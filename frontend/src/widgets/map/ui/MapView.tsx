@@ -11,8 +11,10 @@ import { getAHPScoreMap, getDynamicAHPScoreMap } from '@/shared/lib/ahpScoring';
 import type { GeoJsonObject } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import Image from 'next/image';
 
 // Leafletのデフォルトアイコンの問題を修正
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -56,7 +58,7 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [dangerSpots]);
   
   const scoreLookup = useMemo(() => 
-    new Map(scoreMap.map((item: { index: number; score: number; nearbyDangers: number }) => [item.index, item.score])), 
+    new Map(scoreMap.map((item) => [item.index, item.score])), 
     [scoreMap]
   );
 
@@ -90,7 +92,7 @@ export const MapView: React.FC<MapViewProps> = ({
         limit: 1000, // 最大1000件まで取得
       });
       setDangerSpots(response.spots);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching danger spots:', err);
       setError('危険箇所の取得に失敗しました');
     } finally {
@@ -247,7 +249,8 @@ export const MapView: React.FC<MapViewProps> = ({
         <GeoJSON
           data={bunkyoRoads as GeoJsonObject}
           style={(feature) => {
-            const index = (bunkyoRoads as any).features.indexOf(feature);
+            const geoData = bunkyoRoads as { features: unknown[] };
+            const index = geoData.features.indexOf(feature);
             const score = scoreLookup.get(index);
             const color = typeof score === 'number' ? getPointColor(String(score)) : '#000000';
             return {
@@ -257,7 +260,8 @@ export const MapView: React.FC<MapViewProps> = ({
             };
           }}
           onEachFeature={(feature, layer) => {
-            const index = (bunkyoRoads as any).features.indexOf(feature);
+            const geoData = bunkyoRoads as { features: unknown[] };
+            const index = geoData.features.indexOf(feature);
             const scoreData = scoreMap.find(item => item.index === index);
             const score = scoreData?.score;
             const nearbyDangers = scoreData?.nearbyDangers || 0;
@@ -328,14 +332,12 @@ export const MapView: React.FC<MapViewProps> = ({
                         });
                       }}
                     >
-                      <img
+                      <Image
                         src={getImageUrl(spot.image_id, true)}
                         alt="危険箇所の画像"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect fill="%23ddd" width="300" height="200"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3E画像なし%3C/text%3E%3C/svg%3E';
-                        }}
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-40">
                         <svg

@@ -90,7 +90,7 @@ export interface RoadProperties {
   'Drainage Performance'?: string;
   'Presence of Water Pipe'?: number;
   'Presence of Gas Pipe'?: number;
-  [key: string]: any;
+  [key: string]: string | number | boolean | undefined;
 }
 
 export interface RoadFeature {
