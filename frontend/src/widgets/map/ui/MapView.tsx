@@ -271,16 +271,16 @@ export const MapView: React.FC<MapViewProps> = ({
             const highwayLabel = highwayMap[p.highway] ?? 'その他';
 
             const popupContent = `
-            <div style="font-size: 13px; line-height: 1.4">
-              <strong>道路名:</strong> ${p.name || "(名称なし)"}<br />
-              <strong>道路種別:</strong> ${highwayLabel}<br />
-              <strong>舗装種別:</strong> ${p["Type of Pavement"] || "-"}<br />
-              <strong>築年:</strong> ${p["Year of Construction"] ?? "-"} 年<br />
-              <strong>補修履歴:</strong> ${p["Road Repair History"] ?? "-"} 年前<br />
-              <strong>交通量:</strong> ${p["Traffic Volume"] ?? "-"}<br />
-              <strong>排水性:</strong> ${p["Drainage Performance"] ?? "-"}<br />
-              <strong>水道管:</strong> ${p["Presence of Water Pipe"] ? p["Presence of Water Pipe"] + " 年前補修" : "なし"}<br />
-              <strong>ガス管:</strong> ${p["Presence of Gas Pipe"] ? p["Presence of Gas Pipe"] + " 年前補修" : "なし"}<br />
+            <div style="font-size: 13px; line-height: 1.4; color: #000;">
+              <strong style="color: #000;">道路名:</strong> ${p.name || "(名称なし)"}<br />
+              <strong style="color: #000;">道路種別:</strong> ${highwayLabel}<br />
+              <strong style="color: #000;">舗装種別:</strong> ${p["Type of Pavement"] || "-"}<br />
+              <strong style="color: #000;">築年:</strong> ${p["Year of Construction"] ?? "-"} 年<br />
+              <strong style="color: #000;">補修履歴:</strong> ${p["Road Repair History"] ?? "-"} 年前<br />
+              <strong style="color: #000;">交通量:</strong> ${p["Traffic Volume"] ?? "-"}<br />
+              <strong style="color: #000;">排水性:</strong> ${p["Drainage Performance"] ?? "-"}<br />
+              <strong style="color: #000;">水道管:</strong> ${p["Presence of Water Pipe"] ? p["Presence of Water Pipe"] + " 年前補修" : "なし"}<br />
+              <strong style="color: #000;">ガス管:</strong> ${p["Presence of Gas Pipe"] ? p["Presence of Gas Pipe"] + " 年前補修" : "なし"}<br />
               ${nearbyDangers > 0 ? `<strong style="color: #f90;">⚠ 近くの危険箇所:</strong> ${nearbyDangers}箇所<br />` : ''}
               <strong style="color: #d00;">補修優先スコア (AHP):</strong> ${typeof score === 'number' ? score.toFixed(3) : "-"}${nearbyDangers > 0 ? ' <span style="color: #f90;">↑</span>' : ''}
             </div>
