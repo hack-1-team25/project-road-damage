@@ -22,9 +22,15 @@ export const UploadPanel: React.FC = () => {
     }
   }, []);
 
-  const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGPSUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file extension
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv') && !fileName.endsWith('.gpx')) {
+        setError('GPS データは CSV または GPX ファイルを選択してください');
+        return;
+      }
       setGpsFile(file);
       setError(null);
     }
@@ -32,7 +38,7 @@ export const UploadPanel: React.FC = () => {
 
   const handleUpload = async () => {
     if (!videoFile || !gpsFile) {
-      setError('動画ファイルとGPS CSVファイルの両方を選択してください');
+      setError('動画ファイルとGPSファイル（CSV または GPX）の両方を選択してください');
       return;
     }
 
@@ -114,10 +120,10 @@ export const UploadPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* GPS CSVアップロード */}
+      {/* GPS アップロード */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          GPS データ（CSV）
+          GPS データ（CSV または GPX）
         </label>
         <div className="flex items-center space-x-3">
           <button
@@ -126,7 +132,7 @@ export const UploadPanel: React.FC = () => {
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
             <FileText className="inline-block w-4 h-4 mr-2" />
-            CSVファイルを選択
+            GPS ファイルを選択
           </button>
           <span className="text-sm text-gray-600">
             {gpsFile ? (
@@ -142,9 +148,9 @@ export const UploadPanel: React.FC = () => {
         <input
           ref={csvInputRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.gpx"
           className="hidden"
-          onChange={handleCSVUpload}
+          onChange={handleGPSUpload}
           disabled={loading}
         />
       </div>

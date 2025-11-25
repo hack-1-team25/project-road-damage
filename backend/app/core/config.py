@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     ALLOWED_IMAGE_TYPES: str = "image/jpeg,image/png"
     ALLOWED_VIDEO_TYPES: str = "video/mp4,video/quicktime,video/x-msvideo"
     ALLOWED_CSV_TYPES: str = "text/csv,application/vnd.ms-excel"
+    ALLOWED_GPX_TYPES: str = "application/gpx+xml,application/xml,text/xml"
     
     # Processing
     DEFAULT_FRAME_INTERVAL_SECONDS: int = 10

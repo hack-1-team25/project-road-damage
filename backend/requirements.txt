@@ -19,6 +19,9 @@ Pillow==10.1.0
 opencv-python==4.8.1.78
 numpy<2.0.0
 
+# GPS file parsing
+gpxpy==1.6.2
+
 # PyTorch (required for YOLO)
 torch>=2.0.0
 torchvision>=0.15.0

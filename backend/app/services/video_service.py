@@ -9,6 +9,8 @@ from typing import List, Dict, Tuple, Optional
 from pathlib import Path
 import tempfile
 from dataclasses import dataclass
+import gpxpy
+import gpxpy.gpx
 
 
 @dataclass
@@ -69,6 +71,65 @@ class VideoProcessingService:
         gps_points.sort(key=lambda p: p.timestamp)
         
         return gps_points
+    
+    def parse_gps_gpx(self, gpx_path: str) -> List[GPSPoint]:
+        """
+        Parse GPS GPX file
+        
+        Args:
+            gpx_path: Path to GPS GPX file
+            
+        Returns:
+            List of GPSPoint sorted by timestamp
+        """
+        gps_points = []
+        
+        with open(gpx_path, 'r', encoding='utf-8') as f:
+            gpx = gpxpy.parse(f)
+            
+            # Extract points from all tracks and segments
+            for track in gpx.tracks:
+                for segment in track.segments:
+                    for point in segment.points:
+                        if point.time is not None:
+                            gps_points.append(GPSPoint(
+                                timestamp=point.time,
+                                latitude=point.latitude,
+                                longitude=point.longitude
+                            ))
+            
+            # Also extract waypoints if available
+            for waypoint in gpx.waypoints:
+                if waypoint.time is not None:
+                    gps_points.append(GPSPoint(
+                        timestamp=waypoint.time,
+                        latitude=waypoint.latitude,
+                        longitude=waypoint.longitude
+                    ))
+        
+        # Sort by timestamp
+        gps_points.sort(key=lambda p: p.timestamp)
+        
+        return gps_points
+    
+    def parse_gps_file(self, file_path: str) -> List[GPSPoint]:
+        """
+        Parse GPS file (auto-detect CSV or GPX)
+        
+        Args:
+            file_path: Path to GPS file
+            
+        Returns:
+            List of GPSPoint sorted by timestamp
+        """
+        file_extension = Path(file_path).suffix.lower()
+        
+        if file_extension == '.gpx':
+            return self.parse_gps_gpx(file_path)
+        elif file_extension == '.csv':
+            return self.parse_gps_csv(file_path)
+        else:
+            raise ValueError(f"Unsupported GPS file format: {file_extension}. Supported formats: .csv, .gpx")
     
     def find_closest_gps_point(
         self, 

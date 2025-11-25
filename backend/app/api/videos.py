@@ -42,8 +42,8 @@ async def process_video_task(
         job.started_at = datetime.utcnow()
         db.commit()
         
-        # 1. Parse GPS CSV
-        gps_points = video_processing_service.parse_gps_csv(gps_csv_path)
+        # 1. Parse GPS file (CSV or GPX)
+        gps_points = video_processing_service.parse_gps_file(gps_csv_path)
         
         if not gps_points:
             raise ValueError("No valid GPS points found in CSV")
@@ -194,21 +194,24 @@ async def upload_video(
     db: Session = Depends(get_db)
 ):
     """
-    Upload video and GPS CSV, start background processing
+    Upload video and GPS file (CSV or GPX), start background processing
     
     - **video_file**: Video file (MP4/MOV/AVI)
-    - **gps_log_file**: GPS CSV file (required)
+    - **gps_log_file**: GPS file (CSV or GPX format)
     - **frame_interval**: Frame extraction interval in seconds (default: 10)
     """
     # Validate file types
     allowed_video_types = settings.ALLOWED_VIDEO_TYPES.split(",")
-    allowed_csv_types = settings.ALLOWED_CSV_TYPES.split(",")
     
     if video_file.content_type not in allowed_video_types:
         raise HTTPException(400, "Invalid video file type")
     
-    if gps_log_file.content_type not in allowed_csv_types:
-        raise HTTPException(400, "Invalid CSV file type")
+    # Validate GPS file by extension (more reliable than content-type)
+    gps_filename = gps_log_file.filename or ""
+    gps_extension = gps_filename.lower().split('.')[-1] if '.' in gps_filename else ""
+    
+    if gps_extension not in ['csv', 'gpx']:
+        raise HTTPException(400, f"Invalid GPS file type. Accepted types: CSV or GPX (got .{gps_extension})")
     
     # Generate unique ID
     video_id = uuid.uuid4()
